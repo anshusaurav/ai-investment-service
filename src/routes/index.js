@@ -1,0 +1,34 @@
+const express = require('express');
+const authRoutes = require('./auth');
+const userRoutes = require('./user');
+const companyRoutes = require('./company');
+const industryRoutes = require('./industry');
+const { generalLimiter } = require('../middleware/rateLimiter');
+
+const router = express.Router();
+
+// Apply general rate limiter
+router.use(generalLimiter);
+router.use('/auth', authRoutes);
+router.use('/user', userRoutes);
+// API version info
+router.get('/', (req, res) => {
+    res.json({
+        message: 'Firebase Auth API',
+        version: '1.0.0',
+        endpoints: {
+            auth: '/api/auth',
+            user: '/api/user',
+            health: '/health'
+        },
+        documentation: '/docs'
+    });
+});
+
+// Route handlers
+router.use('/auth', authRoutes);
+router.use('/user', userRoutes);
+router.use('/company', companyRoutes);
+router.use('/industry', industryRoutes);
+
+module.exports = router;
