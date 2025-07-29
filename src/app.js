@@ -2,6 +2,7 @@ const express = require('express');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
+// const cors = require('cors');
 require('dotenv').config();
 
 // Import middleware

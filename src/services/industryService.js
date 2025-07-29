@@ -15,7 +15,9 @@ class IndustryService {
             const snapshot = await this.collection.get();
             return snapshot.docs.map(doc => ({
                 id: doc.id,
-                ...doc.data()
+                industryId: doc.data().industryId,
+                industryName: doc.data().industryName,
+                link: doc.data().link
             }));
         } catch (error) {
             logger.error('Error in getAllIndustries service:', error);

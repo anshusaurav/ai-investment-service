@@ -30,7 +30,15 @@ router.get('/', authLimiter, companyController.getCompaniesByCriteria);
  * @access Public
  * @query {string} q - Search query
  */
-router.get('/search', authLimiter, companyController.searchCompanies);
+router.post('/search', authLimiter, companyController.searchCompanies);
+
+/**
+ * @route GET /api/company/getCompaniesByIndustry
+ * @desc Search companies by industry link
+ * @access Public
+ * @query {string} q - Search query
+ */
+router.post('/searchByIndustryLink', authLimiter, companyController.searchCompaniesByIndustryLink);
 
 /**
  * @route GET /api/company/stats

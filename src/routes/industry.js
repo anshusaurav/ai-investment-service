@@ -3,21 +3,21 @@ const router = express.Router();
 const industryController = require('../controllers/industryController');
 
 /**
- * @route GET /api/industries
+ * @route GET /api/industry
  * @description Get all industries
  * @access Public
  */
 router.get('/', industryController.getAllIndustries);
 
 /**
- * @route GET /api/industries/:id
+ * @route GET /api/industry/:id
  * @description Get industry by ID
  * @access Public
  */
 router.get('/:id', industryController.getIndustryById);
 
 /**
- * @route GET /api/industries/search
+ * @route GET /api/industry/search
  * @description Search industries
  * @access Public
  */

@@ -1,0 +1,19 @@
+{
+  "companyCode": "1284931",
+  "createdAt": "2025-07-28T11:31:55.279Z",
+  "updatedAt": "2025-07-28T11:31:55.279Z",
+  "documentCount": 10,
+  "totalChunks": 883,
+  "urls": [
+    "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=7488a516-a6d0-49e2-9386-d4463545575d.pdf",
+    "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=b2cbef82-a692-4db6-a058-f7454cd152ea.pdf",
+    "https://www.interarchbuildings.com/pdf/Earning-Cal-Q2-FY24.pdf",
+    "https://www.bseindia.com/stockinfo/AnnPdfOpen.aspx?Pname=83a164f4-c0b8-47da-acd2-bbfb7a806cdc.pdf"
+  ],
+  "processingConfig": {
+    "chunkSize": 1000,
+    "chunkOverlap": 200,
+    "embeddingModel": "gemini-embedding-001"
+  },
+  "version": "1.0.0"
+}

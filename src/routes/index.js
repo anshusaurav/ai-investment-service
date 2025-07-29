@@ -3,6 +3,7 @@ const authRoutes = require('./auth');
 const userRoutes = require('./user');
 const companyRoutes = require('./company');
 const industryRoutes = require('./industry');
+const chatRoutes = require('./chat');
 const { generalLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
@@ -30,5 +31,6 @@ router.use('/auth', authRoutes);
 router.use('/user', userRoutes);
 router.use('/company', companyRoutes);
 router.use('/industry', industryRoutes);
+router.use('/chat', chatRoutes )
 
 module.exports = router;

@@ -5,7 +5,7 @@ const corsOptions = {
     origin: (origin, callback) => {
         const allowedOrigins = process.env.ALLOWED_ORIGINS
             ? process.env.ALLOWED_ORIGINS.split(',')
-            : ['chrome-extension://*', 'http://localhost:3000'];
+            : ['chrome-extension://*', 'http://localhost:3000', 'https://www.specterfi.com'];
 
         // Allow requests with no origin (mobile apps, postman, etc.)
         if (!origin) return callback(null, true);
