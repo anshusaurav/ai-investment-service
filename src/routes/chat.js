@@ -14,6 +14,9 @@ router.post('/sendMessage', (req, res) => documentController.chat(req, res));
 // Transform prompt
 router.post('/transform', (req, res) => documentController.transformPrompt(req, res));
 
+// Transform and chat endpoint (combines transform + response generation)
+router.post('/transformAndChat', (req, res) => documentController.transformAndChat(req, res));
+
 // Service status (for debugging)
 router.get('/status', (req, res) => documentController.getStatus(req, res));
 

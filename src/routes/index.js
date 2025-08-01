@@ -31,6 +31,6 @@ router.use('/auth', authRoutes);
 router.use('/user', userRoutes);
 router.use('/company', companyRoutes);
 router.use('/industry', industryRoutes);
-router.use('/chat', chatRoutes )
+router.use('/chat', chatRoutes)
 
 module.exports = router;

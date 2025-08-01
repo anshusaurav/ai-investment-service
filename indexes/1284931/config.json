@@ -1,5 +1,0 @@
-{
-  "chunkSize": 1000,
-  "chunkOverlap": 200,
-  "embeddingModel": "gemini-embedding-001"
-}
