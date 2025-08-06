@@ -10,7 +10,7 @@ const router = express.Router();
  * @desc Get company details by ID
  * @access Public (you can add auth middleware if needed)
  */
-router.get('/:id', authLimiter, companyController.getCompanyById);
+router.get('/:id', companyController.getCompanyById);
 
 /**
  * @route GET /api/company
