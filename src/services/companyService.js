@@ -1,4 +1,5 @@
 const { collections } = require("../config/firestore");
+const mongodb = require("../config/mongodb");
 const logger = require("../utils/logger");
 
 class CompanyService {
@@ -7,7 +8,7 @@ class CompanyService {
    * @param {string} companyId - Company ID to search for
    * @returns {Promise<Object|null>} Company data or null if not found
    */
-  async   getCompanyById(companyId) {
+  async getCompanyById(companyId) {
     try {
       logger.info(`Fetching company details for ID: ${companyId}`);
 
@@ -160,9 +161,9 @@ class CompanyService {
       // First attempt: Exact match
       console.log('Service - Attempting exact match for:', industryPath);
       let snapshot = await collections.documents
-          .where("industryLink", "==", industryPath)
-          .limit(100)
-          .get();
+        .where("industryLink", "==", industryPath)
+        .limit(100)
+        .get();
 
       console.log('Service - Exact match results:', snapshot);
 
@@ -176,10 +177,10 @@ class CompanyService {
         const prefixEnd = industryPath.slice(0, -1) + String.fromCharCode(industryPath.charCodeAt(industryPath.length - 1) + 1);
 
         snapshot = await collections.documents
-            .where("industryLink", ">=", industryPath)
-            .where("industryLink", "<", prefixEnd)
-            .limit(100)
-            .get();
+          .where("industryLink", ">=", industryPath)
+          .where("industryLink", "<", prefixEnd)
+          .limit(100)
+          .get();
 
         console.log('Service - Prefix match results:', snapshot);
       }
@@ -216,25 +217,44 @@ class CompanyService {
     try {
       logger.info(`Searching companies with term: ${searchTerm}`);
 
-      // Note: Firestore doesn't support full-text search natively
-      // This is a basic implementation using array-contains for keywords
-      // const querySnapshot = await collections.documents
-      const querySnapshot = await collections.documents
-          .where('name', '>=', searchTerm.toLowerCase())
-          .where('name', '<', searchTerm.toLowerCase() + '\uf8ff')
-          .get();
+      // Connect to MongoDB
+      await mongodb.connect();
+      const collection = mongodb.getCollection();
 
-      const companies = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        companyCode: doc.data().companyCode,
-        name: doc.data().name,
-        nseCode: doc.data().nseCode,
-        bseCode: doc.data().bseCode,
+      // Create a case-insensitive regex search for company name
+      const searchRegex = new RegExp(searchTerm, 'i');
+
+      // Search in multiple fields: name, companyCode, nseCode, bseCode
+      const searchQuery = {
+        $or: [
+          { name: { $regex: searchRegex } },
+          { companyCode: { $regex: searchRegex } },
+          { nseCode: { $regex: searchRegex } },
+          { bseCode: { $regex: searchRegex } }
+        ]
+      };
+
+      const companies = await collection
+        .find(searchQuery)
+        .project({
+          companyCode: 1,
+          name: 1,
+          nseCode: 1,
+          bseCode: 1
+        })
+        .limit(50)
+        .toArray();
+
+      // Transform MongoDB documents to return only required fields
+      const transformedCompanies = companies.map((doc) => ({
+        name: doc.name,
+        companyCode: doc.companyCode,
+        nseCode: doc.nseCode,
+        bseCode: doc.bseCode,
       }));
-      console.log(companies);
 
-      logger.info(`Found ${companies.length} companies matching search term`);
-      return companies;
+      logger.info(`Found ${transformedCompanies.length} companies matching search term`);
+      return transformedCompanies;
     } catch (error) {
       logger.error("Failed to search companies:", {
         error: error.message,

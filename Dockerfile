@@ -13,22 +13,16 @@ RUN npm ci --only=production --legacy-peer-deps
 # Copy the rest of the application code
 COPY . .
 
-# Create uploads directory
-RUN mkdir -p uploads
-
-# Create a non-root user to run the application
+# Create a non-root user to run the app
 RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+RUN adduser -S nodejs -u 1001
 
 # Change ownership of the app directory to the nodejs user
-RUN chown -R nextjs:nodejs /app
-USER nextjs
+RUN chown -R nodejs:nodejs /app
+USER nodejs
 
-# Expose the port the app runs on
-EXPOSE 3000
+# Expose the port the app runs on (Cloud Run will set PORT env var)
+EXPOSE 8080
 
-# Define environment variable
-ENV NODE_ENV=production
-
-# Command to run the application
+# Define the command to run the application
 CMD ["npm", "start"]

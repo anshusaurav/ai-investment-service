@@ -19,6 +19,12 @@ const logger = require('./utils/logger');
 // Initialize Firebase
 require('./config/firebase');
 
+// Initialize MongoDB connection
+const mongodb = require('./config/mongodb');
+mongodb.connect().catch(err => {
+    logger.error('Failed to connect to MongoDB on startup:', err);
+});
+
 const app = express();
 
 // Security middleware

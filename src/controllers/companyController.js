@@ -123,7 +123,6 @@ class CompanyController {
       }
 
       const companies = await companyService.searchCompanies(q);
-
       return ApiResponse.success(
         res,
         {
@@ -144,23 +143,23 @@ class CompanyController {
    * @param {Object} res - Express response object
    */
   async searchCompaniesByIndustryLink(req, res) {
-      try {
-          const { industryPath } = req.body;
+    try {
+      const { industryPath } = req.body;
 
-          if (!industryPath) {
-              return ApiResponse.validationError(res, ['Industry is required']);
-          }
-        const companies = await companyService.getCompanyByIndustry(industryPath);
-
-          if (!companies) {
-              return ApiResponse.notFound(res, 'Companies not found');
-          }
-
-          return ApiResponse.success(res, companies, 'success');
-      } catch (error) {
-          logger.error('Error in getCompanyByIndustry controller:', error);
-          return ApiResponse.error(res, 'Failed to retrieve companies', 500);
+      if (!industryPath) {
+        return ApiResponse.validationError(res, ['Industry is required']);
       }
+      const companies = await companyService.getCompanyByIndustry(industryPath);
+
+      if (!companies) {
+        return ApiResponse.notFound(res, 'Companies not found');
+      }
+
+      return ApiResponse.success(res, companies, 'success');
+    } catch (error) {
+      logger.error('Error in getCompanyByIndustry controller:', error);
+      return ApiResponse.error(res, 'Failed to retrieve companies', 500);
+    }
   }
 
   /**
