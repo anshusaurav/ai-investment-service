@@ -4,16 +4,25 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
+# Environment variables (allow .env.production for deployment template)
 .env
 .env.local
+.env.development
 .env.development.local
+.env.test
 .env.test.local
 .env.production.local
+.env production
 
-# Firebase
+# Firebase & Google Cloud
 serviceAccountKey.json
 firebase-debug.log
+firebase-key.json
+*-key.json
+*-credentials.json
+google-credentials.json
+gcp-key.json
+service-account*.json
 
 # Logs
 logs/
@@ -81,3 +90,4 @@ build/
 # Temporary files
 tmp/
 temp/
+.kiro

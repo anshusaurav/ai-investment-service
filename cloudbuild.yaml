@@ -8,7 +8,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/ai-investment-service:$COMMIT_SHA']
   
-  # Deploy to Cloud Run
+  # Deploy to Cloud Run with secure configuration
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
@@ -29,8 +29,12 @@ steps:
       - '1'
       - '--max-instances'
       - '10'
+      - '--service-account'
+      - 'firebase-adminsdk-d93k8@$PROJECT_ID.iam.gserviceaccount.com'
       - '--set-env-vars'
-      - 'NODE_ENV=production'
+      - 'NODE_ENV=production,FIREBASE_PROJECT_ID=$PROJECT_ID'
+      - '--update-secrets'
+      - 'FIREBASE_SERVICE_ACCOUNT_KEY=firebase-service-account-key:latest'
 
 # Store images in Container Registry
 images:
