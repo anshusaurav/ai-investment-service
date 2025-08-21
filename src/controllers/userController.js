@@ -1,5 +1,4 @@
 const userService = require('../services/userService');
-const authService = require('../services/authService');
 const ApiResponse = require('../utils/responses');
 const logger = require('../utils/logger');
 
@@ -11,22 +10,22 @@ class UserController {
      */
     async getUserProfile(req, res) {
         try {
-            const { idToken } = req.body;
+            const userId = req.user.uid;
 
-            // Verify token first
-            const userData = await authService.verifyIdToken(idToken);
+            // Get user profile from MongoDB
+            const userProfile = await userService.getUserByUid(userId);
 
-            // Get detailed user profile
-            const userProfile = await userService.getUserProfile(userData.uid);
+            if (!userProfile) {
+                return ApiResponse.error(res, 'User profile not found', 404);
+            }
 
-            return ApiResponse.success(res, userProfile, 'User profile retrieved successfully');
+            // Remove sensitive information
+            const { _id, ...safeProfile } = userProfile;
+
+            return ApiResponse.success(res, safeProfile, 'User profile retrieved successfully');
         } catch (error) {
             logger.error('Error in getUserProfile controller:', error);
-
-            const statusCode = authService.getErrorStatusCode(error.code);
-            const message = authService.getErrorMessage(error.code);
-
-            return ApiResponse.error(res, message, statusCode);
+            return ApiResponse.error(res, 'Failed to retrieve user profile', 500);
         }
     }
 
@@ -37,96 +36,102 @@ class UserController {
      */
     async updateUserProfile(req, res) {
         try {
-            const { idToken, updates } = req.body;
+            const userId = req.user.uid;
+            const updates = req.body;
 
             if (!updates || Object.keys(updates).length === 0) {
                 return ApiResponse.validationError(res, ['Updates are required']);
             }
 
-            // Verify token first
-            const userData = await authService.verifyIdToken(idToken);
-
             // Update user profile
-            const updatedProfile = await userService.updateUserProfile(userData.uid, updates);
+            const updatedProfile = await userService.updateUserProfile(userId, updates);
 
-            return ApiResponse.success(res, updatedProfile, 'User profile updated successfully');
+            if (!updatedProfile) {
+                return ApiResponse.error(res, 'User not found', 404);
+            }
+
+            // Remove sensitive information
+            const { _id, ...safeProfile } = updatedProfile;
+
+            return ApiResponse.success(res, safeProfile, 'User profile updated successfully');
         } catch (error) {
             logger.error('Error in updateUserProfile controller:', error);
-
-            const statusCode = authService.getErrorStatusCode(error.code);
-            const message = authService.getErrorMessage(error.code);
-
-            return ApiResponse.error(res, message, statusCode);
+            return ApiResponse.error(res, 'Failed to update user profile', 500);
         }
     }
 
     /**
-     * Set custom claims for user
+     * Get user's watchlist
      * @param {Object} req - Express request object
      * @param {Object} res - Express response object
      */
-    async setCustomClaims(req, res) {
+    async getWatchlist(req, res) {
         try {
-            const { uid, customClaims } = req.body;
+            const userId = req.user.uid;
+            const watchlist = await userService.getUserWatchlist(userId);
 
-            if (!uid) {
-                return ApiResponse.validationError(res, ['User ID is required']);
-            }
-
-            if (!customClaims || typeof customClaims !== 'object') {
-                return ApiResponse.validationError(res, ['Custom claims must be an object']);
-            }
-
-            await userService.setCustomClaims(uid, customClaims);
-
-            return ApiResponse.success(res, null, 'Custom claims set successfully');
+            return ApiResponse.success(
+                res,
+                { watchlist },
+                "Watchlist retrieved successfully"
+            );
         } catch (error) {
-            logger.error('Error in setCustomClaims controller:', error);
-            return ApiResponse.error(res, 'Failed to set custom claims', 500);
+            logger.error("Error in getWatchlist controller:", error);
+            return ApiResponse.error(res, "Failed to retrieve watchlist", 500);
         }
     }
 
     /**
-     * Disable user account
+     * Add company to watchlist
      * @param {Object} req - Express request object
      * @param {Object} res - Express response object
      */
-    async disableUser(req, res) {
+    async addToWatchlist(req, res) {
         try {
-            const { uid } = req.body;
+            const userId = req.user.uid;
+            const { companyCode } = req.body;
 
-            if (!uid) {
-                return ApiResponse.validationError(res, ['User ID is required']);
+            if (!companyCode) {
+                return ApiResponse.validationError(res, ['Company code is required']);
             }
 
-            await userService.disableUser(uid);
+            const success = await userService.addToWatchlist(userId, companyCode);
 
-            return ApiResponse.success(res, null, 'User account disabled successfully');
+            if (!success) {
+                return ApiResponse.error(res, 'Failed to add company to watchlist', 400);
+            }
+
+            return ApiResponse.success(res, null, 'Company added to watchlist successfully');
         } catch (error) {
-            logger.error('Error in disableUser controller:', error);
-            return ApiResponse.error(res, 'Failed to disable user account', 500);
+            logger.error('Error in addToWatchlist controller:', error);
+            return ApiResponse.error(res, 'Failed to add company to watchlist', 500);
         }
     }
 
     /**
-     * Enable user account
+     * Remove company from watchlist
      * @param {Object} req - Express request object
      * @param {Object} res - Express response object
      */
-    async enableUser(req, res) {
+    async removeFromWatchlist(req, res) {
         try {
-            const { uid } = req.body;
+            const userId = req.user.uid;
+            const { companyCode } = req.body;
 
-            if (!uid) {
-                return ApiResponse.validationError(res, ['User ID is required']);
+            if (!companyCode) {
+                return ApiResponse.validationError(res, ['Company code is required']);
             }
 
-            await userService.enableUser(uid);
+            const success = await userService.removeFromWatchlist(userId, companyCode);
 
-            return ApiResponse.success(res, null, 'User account enabled successfully');
+            if (!success) {
+                return ApiResponse.error(res, 'Failed to remove company from watchlist', 400);
+            }
+
+            return ApiResponse.success(res, null, 'Company removed from watchlist successfully');
         } catch (error) {
-            logger.error('Error in enableUser controller:', error);
-            return ApiResponse.error(res, 'Failed to enable user account', 500);
+            logger.error('Error in removeFromWatchlist controller:', error);
+            return ApiResponse.error(res, 'Failed to remove company from watchlist', 500);
         }
     }
 }

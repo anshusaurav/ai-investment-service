@@ -8,20 +8,22 @@ const router = express.Router();
 // Apply auth rate limiter to all routes
 router.use(authLimiter);
 
-// Token verification endpoints
-router.post('/verify-token',
-    validate(schemas.verifyToken),
-    authController.verifyToken
+// Google Sign Up - for new users
+router.post('/signup/google',
+    validate(schemas.googleSignUp),
+    authController.googleSignUp
 );
 
-// Create custom token
-router.post('/create-custom-token',
-    authController.createCustomToken
+// Google Sign In - for existing users
+router.post('/signin/google',
+    validate(schemas.googleSignIn),
+    authController.googleSignIn
 );
 
-// Revoke refresh tokens
-// router.post('/revoke-refresh-tokens',
-//     authController.revokeRefreshTokens
-// );
+// Refresh expired Firebase token
+router.post('/refresh-token',
+    validate(schemas.refreshToken),
+    authController.refreshToken
+);
 
 module.exports = router;

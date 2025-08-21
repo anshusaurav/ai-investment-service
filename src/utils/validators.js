@@ -5,8 +5,28 @@ const schemas = {
         idToken: Joi.string().required().min(1).max(4096)
     }),
 
+    googleSignIn: Joi.object({
+        idToken: Joi.string().required().min(1).max(4096)
+    }),
+
+    googleSignUp: Joi.object({
+        idToken: Joi.string().required().min(1).max(4096)
+    }),
+
+    refreshToken: Joi.object({
+        refreshToken: Joi.string().required().min(1).max(4096)
+    }),
+
     userProfile: Joi.object({
         idToken: Joi.string().required().min(1).max(4096)
+    }),
+
+    followCompany: Joi.object({
+        companyCode: Joi.string().required().min(1).max(50).pattern(/^[A-Z0-9_-]+$/)
+    }),
+
+    unfollowCompany: Joi.object({
+        companyCode: Joi.string().required().min(1).max(50).pattern(/^[A-Z0-9_-]+$/)
     })
 };
 

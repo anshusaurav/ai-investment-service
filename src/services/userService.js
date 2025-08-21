@@ -1,177 +1,185 @@
-const { admin } = require('../config/firebase');
+const User = require('../models/User');
 const logger = require('../utils/logger');
 
 class UserService {
     /**
-     * Get user profile by UID
-     * @param {string} uid - User ID
-     * @returns {Promise<Object>} User profile data
+     * Create a new user in MongoDB
+     * @param {Object} userData - User data from Firebase
+     * @returns {Promise<Object>} Created user
      */
-    async getUserProfile(uid) {
+    async createUser(userData) {
         try {
-            const userRecord = await admin.auth().getUser(uid);
+            // Extract name parts if available
+            const nameParts = userData.name ? userData.name.split(' ') : [];
+            const firstName = nameParts[0] || null;
+            const lastName = nameParts.slice(1).join(' ') || null;
 
-            logger.info(`User profile retrieved for: ${uid}`);
-
-            return {
-                uid: userRecord.uid,
-                email: userRecord.email,
-                displayName: userRecord.displayName,
-                photoURL: userRecord.photoURL,
-                emailVerified: userRecord.emailVerified,
-                disabled: userRecord.disabled,
-                metadata: {
-                    creationTime: userRecord.metadata.creationTime,
-                    lastSignInTime: userRecord.metadata.lastSignInTime,
-                    lastRefreshTime: userRecord.metadata.lastRefreshTime
-                },
-                customClaims: userRecord.customClaims || {},
-                providerData: userRecord.providerData.map(provider => ({
-                    uid: provider.uid,
-                    email: provider.email,
-                    displayName: provider.displayName,
-                    photoURL: provider.photoURL,
-                    providerId: provider.providerId
-                }))
+            const userToCreate = {
+                uid: userData.uid,
+                email: userData.email,
+                name: userData.name,
+                picture: userData.picture,
+                emailVerified: userData.emailVerified,
+                provider: userData.provider,
+                firstName,
+                lastName
             };
+
+            const createdUser = await User.create(userToCreate);
+            
+            logger.info(`User created in MongoDB: ${userData.uid}`);
+            return createdUser;
         } catch (error) {
-            logger.error('Failed to get user profile:', {
-                error: error.message,
-                uid
-            });
+            logger.error('Error creating user in MongoDB:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get user by Firebase UID
+     * @param {string} uid - Firebase UID
+     * @returns {Promise<Object|null>} User data
+     */
+    async getUserByUid(uid) {
+        try {
+            const user = await User.findByUid(uid);
+            return user;
+        } catch (error) {
+            logger.error('Error getting user by UID:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get user by email
+     * @param {string} email - User email
+     * @returns {Promise<Object|null>} User data
+     */
+    async getUserByEmail(email) {
+        try {
+            const user = await User.findByEmail(email);
+            return user;
+        } catch (error) {
+            logger.error('Error getting user by email:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Update user's last login time
+     * @param {string} uid - Firebase UID
+     * @returns {Promise<boolean>} Success status
+     */
+    async updateLastLogin(uid) {
+        try {
+            const success = await User.updateLastLogin(uid);
+            if (success) {
+                logger.info(`Updated last login for user: ${uid}`);
+            }
+            return success;
+        } catch (error) {
+            logger.error('Error updating last login:', error);
             throw error;
         }
     }
 
     /**
      * Update user profile
-     * @param {string} uid - User ID
-     * @param {Object} updates - Profile updates
-     * @returns {Promise<Object>} Updated user profile
+     * @param {string} uid - Firebase UID
+     * @param {Object} profileData - Profile data to update
+     * @returns {Promise<Object|null>} Updated user
      */
-    async updateUserProfile(uid, updates) {
+    async updateUserProfile(uid, profileData) {
         try {
-            const userRecord = await admin.auth().updateUser(uid, updates);
-
-            logger.info(`User profile updated for: ${uid}`, updates);
-
-            return this.getUserProfile(uid);
+            const updatedUser = await User.updateByUid(uid, profileData);
+            if (updatedUser) {
+                logger.info(`User profile updated: ${uid}`);
+            }
+            return updatedUser;
         } catch (error) {
-            logger.error('Failed to update user profile:', {
-                error: error.message,
-                uid,
-                updates
-            });
+            logger.error('Error updating user profile:', error);
             throw error;
         }
     }
 
     /**
-     * Set custom claims for user
-     * @param {string} uid - User ID
-     * @param {Object} customClaims - Custom claims to set
+     * Get user's watchlist
+     * @param {string} uid - Firebase UID
+     * @returns {Promise<Array>} User's watchlist
+     */
+    async getUserWatchlist(uid) {
+        try {
+            const watchlist = await User.getWatchlist(uid);
+            return watchlist;
+        } catch (error) {
+            logger.error('Error getting user watchlist:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Add company to user's watchlist
+     * @param {string} uid - Firebase UID
+     * @param {string} companyCode - Company code to add
+     * @returns {Promise<boolean>} Success status
+     */
+    async addToWatchlist(uid, companyCode) {
+        try {
+            const success = await User.addToWatchlist(uid, companyCode);
+            if (success) {
+                logger.info(`Added ${companyCode} to watchlist for user: ${uid}`);
+            }
+            return success;
+        } catch (error) {
+            logger.error('Error adding to watchlist:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Remove company from user's watchlist
+     * @param {string} uid - Firebase UID
+     * @param {string} companyCode - Company code to remove
+     * @returns {Promise<boolean>} Success status
+     */
+    async removeFromWatchlist(uid, companyCode) {
+        try {
+            const success = await User.removeFromWatchlist(uid, companyCode);
+            if (success) {
+                logger.info(`Removed ${companyCode} from watchlist for user: ${uid}`);
+            }
+            return success;
+        } catch (error) {
+            logger.error('Error removing from watchlist:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Check if user exists in MongoDB
+     * @param {string} uid - Firebase UID
+     * @returns {Promise<boolean>} User exists status
+     */
+    async userExists(uid) {
+        try {
+            const user = await User.findByUid(uid);
+            return !!user;
+        } catch (error) {
+            logger.error('Error checking if user exists:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Initialize user collection indexes
      * @returns {Promise<void>}
      */
-    async setCustomClaims(uid, customClaims) {
+    async initializeIndexes() {
         try {
-            await admin.auth().setCustomUserClaims(uid, customClaims);
-            logger.info(`Custom claims set for user: ${uid}`, customClaims);
+            await User.createIndexes();
+            logger.info('User service indexes initialized');
         } catch (error) {
-            logger.error('Failed to set custom claims:', {
-                error: error.message,
-                uid,
-                customClaims
-            });
-            throw error;
-        }
-    }
-
-    /**
-     * Delete user account
-     * @param {string} uid - User ID
-     * @returns {Promise<void>}
-     */
-    async deleteUser(uid) {
-        try {
-            await admin.auth().deleteUser(uid);
-            logger.info(`User deleted: ${uid}`);
-        } catch (error) {
-            logger.error('Failed to delete user:', {
-                error: error.message,
-                uid
-            });
-            throw error;
-        }
-    }
-
-    /**
-     * Disable user account
-     * @param {string} uid - User ID
-     * @returns {Promise<void>}
-     */
-    async disableUser(uid) {
-        try {
-            await admin.auth().updateUser(uid, { disabled: true });
-            logger.info(`User disabled: ${uid}`);
-        } catch (error) {
-            logger.error('Failed to disable user:', {
-                error: error.message,
-                uid
-            });
-            throw error;
-        }
-    }
-
-    /**
-     * Enable user account
-     * @param {string} uid - User ID
-     * @returns {Promise<void>}
-     */
-    async enableUser(uid) {
-        try {
-            await admin.auth().updateUser(uid, { disabled: false });
-            logger.info(`User enabled: ${uid}`);
-        } catch (error) {
-            logger.error('Failed to enable user:', {
-                error: error.message,
-                uid
-            });
-            throw error;
-        }
-    }
-
-    /**
-     * List users with pagination
-     * @param {number} maxResults - Maximum number of results
-     * @param {string} nextPageToken - Token for next page
-     * @returns {Promise<Object>} List of users and pagination info
-     */
-    async listUsers(maxResults = 1000, nextPageToken = null) {
-        try {
-            const listUsersResult = await admin.auth().listUsers(maxResults, nextPageToken);
-
-            logger.info(`Listed ${listUsersResult.users.length} users`);
-
-            return {
-                users: listUsersResult.users.map(user => ({
-                    uid: user.uid,
-                    email: user.email,
-                    displayName: user.displayName,
-                    emailVerified: user.emailVerified,
-                    disabled: user.disabled,
-                    metadata: {
-                        creationTime: user.metadata.creationTime,
-                        lastSignInTime: user.metadata.lastSignInTime
-                    }
-                })),
-                pageToken: listUsersResult.pageToken
-            };
-        } catch (error) {
-            logger.error('Failed to list users:', {
-                error: error.message,
-                maxResults,
-                nextPageToken
-            });
+            logger.error('Error initializing user indexes:', error);
             throw error;
         }
     }

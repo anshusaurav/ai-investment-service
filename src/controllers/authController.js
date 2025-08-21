@@ -4,77 +4,68 @@ const logger = require('../utils/logger');
 
 class AuthController {
     /**
-     * Verify Firebase ID token
+     * Google Sign Up - for new users
      * @param {Object} req - Express request object
      * @param {Object} res - Express response object
      */
-    async verifyToken(req, res) {
+    async googleSignUp(req, res) {
         try {
             const { idToken } = req.body;
 
-            const userData = await authService.verifyIdToken(idToken);
+            const result = await authService.googleSignUp(idToken);
 
-            return ApiResponse.success(res, {
-                valid: true,
-                user: userData
-            }, 'Token verified successfully');
+            return ApiResponse.success(res, result, 'Sign up successful');
         } catch (error) {
-            logger.error('Error in verifyToken controller:', error);
+            logger.error('Error in googleSignUp controller:', error);
 
             const statusCode = authService.getErrorStatusCode(error.code);
             const message = authService.getErrorMessage(error.code);
 
-            return res.status(statusCode).json({
-                valid: false,
-                error: message,
-                timestamp: new Date().toISOString()
-            });
+            return ApiResponse.error(res, message, statusCode);
         }
     }
 
     /**
-     * Create custom token
+     * Google Sign In - for existing users
      * @param {Object} req - Express request object
      * @param {Object} res - Express response object
      */
-    async createCustomToken(req, res) {
+    async googleSignIn(req, res) {
         try {
-            const { uid, additionalClaims } = req.body;
+            const { idToken } = req.body;
 
-            if (!uid) {
-                return ApiResponse.validationError(res, ['User ID is required']);
-            }
+            const result = await authService.googleSignIn(idToken);
 
-            const customToken = await authService.createCustomToken(uid, additionalClaims);
-
-            return ApiResponse.success(res, {
-                customToken
-            }, 'Custom token created successfully');
+            return ApiResponse.success(res, result, 'Sign in successful');
         } catch (error) {
-            logger.error('Error in createCustomToken controller:', error);
-            return ApiResponse.error(res, 'Failed to create custom token', 500);
+            logger.error('Error in googleSignIn controller:', error);
+
+            const statusCode = authService.getErrorStatusCode(error.code);
+            const message = authService.getErrorMessage(error.code);
+
+            return ApiResponse.error(res, message, statusCode);
         }
     }
 
     /**
-     * Revoke refresh tokens
+     * Refresh expired Firebase token
      * @param {Object} req - Express request object
      * @param {Object} res - Express response object
      */
-    async revokeTokens(req, res) {
+    async refreshToken(req, res) {
         try {
-            const { uid } = req.body;
+            const { refreshToken } = req.body;
 
-            if (!uid) {
-                return ApiResponse.validationError(res, ['User ID is required']);
-            }
+            const result = await authService.refreshToken(refreshToken);
 
-            await authService.revokeRefreshTokens(uid);
-
-            return ApiResponse.success(res, null, 'Refresh tokens revoked successfully');
+            return ApiResponse.success(res, result, 'Token refreshed successfully');
         } catch (error) {
-            logger.error('Error in revokeTokens controller:', error);
-            return ApiResponse.error(res, 'Failed to revoke tokens', 500);
+            logger.error('Error in refreshToken controller:', error);
+
+            const statusCode = authService.getErrorStatusCode(error.code);
+            const message = authService.getErrorMessage(error.code);
+
+            return ApiResponse.error(res, message, statusCode);
         }
     }
 }

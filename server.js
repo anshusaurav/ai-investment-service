@@ -10,12 +10,28 @@ const server = app.listen(PORT, HOST, () => {
     logger.info(`Server running on http://${HOST}:${PORT}`);
     logger.info(`Health check: http://localhost:${PORT}/health (inside container)`);
     logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
+
+    // Initialize services after server is listening
+    setTimeout(() => {
+        logger.info('Starting service initialization...');
+        // Import and call the initialization function
+        const initServices = require('./src/utils/initServices');
+        initServices();
+    }, 1000); // Give server 1 second to fully start
 });
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
     logger.info('SIGTERM received, shutting down gracefully');
     await mongodb.disconnect();
+
+    try {
+        const redis = require('./src/config/redis');
+        await redis.disconnect();
+    } catch (error) {
+        logger.error('Error disconnecting Redis:', error);
+    }
+
     server.close(() => {
         logger.info('Process terminated');
         process.exit(0);
@@ -25,6 +41,14 @@ process.on('SIGTERM', async () => {
 process.on('SIGINT', async () => {
     logger.info('SIGINT received, shutting down gracefully');
     await mongodb.disconnect();
+
+    try {
+        const redis = require('./src/config/redis');
+        await redis.disconnect();
+    } catch (error) {
+        logger.error('Error disconnecting Redis:', error);
+    }
+
     server.close(() => {
         logger.info('Process terminated');
         process.exit(0);

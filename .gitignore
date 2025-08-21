@@ -13,7 +13,11 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 .env production
+.env.docker
+.env.docker.template
 
+env-vars.yaml
+env-vars.yaml
 # Firebase & Google Cloud
 serviceAccountKey.json
 firebase-debug.log
@@ -91,3 +95,6 @@ build/
 tmp/
 temp/
 .kiro
+
+# Test files
+test-*.js

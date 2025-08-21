@@ -1,4 +1,5 @@
 const companyService = require("../services/companyService");
+const watchlistService = require("../services/watchlistService");
 const ApiResponse = require("../utils/responses");
 const logger = require("../utils/logger");
 
@@ -163,6 +164,29 @@ class CompanyController {
   }
 
   /**
+   * Get industry list
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   */
+  async getIndustryList(req, res) {
+    try {
+      const industries = await companyService.getIndustryList();
+
+      return ApiResponse.success(
+        res,
+        {
+          industries,
+          count: industries.length
+        },
+        "Industry list retrieved successfully"
+      );
+    } catch (error) {
+      logger.error("Error in getIndustryList controller:", error);
+      return ApiResponse.error(res, "Failed to retrieve industry list", 500);
+    }
+  }
+
+  /**
    * Get company statistics
    * @param {Object} req - Express request object
    * @param {Object} res - Express response object
@@ -183,6 +207,90 @@ class CompanyController {
         "Failed to retrieve company statistics",
         500
       );
+    }
+  }
+
+  /**
+   * Follow a company (add to watchlist)
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   */
+  async followCompany(req, res) {
+    try {
+      const { companyCode } = req.body;
+      const userId = req.user.uid;
+
+      if (!companyCode) {
+        return ApiResponse.validationError(res, ["Company code is required"]);
+      }
+
+      // Check if company exists
+      const company = await companyService.getCompanyById(companyCode);
+      if (!company) {
+        return ApiResponse.notFound(res, "Company not found");
+      }
+
+      const result = await watchlistService.followCompany(userId, companyCode);
+
+      return ApiResponse.success(
+        res,
+        result,
+        `Successfully followed ${companyCode}`
+      );
+    } catch (error) {
+      logger.error("Error in followCompany controller:", error);
+      return ApiResponse.error(res, "Failed to follow company", 500);
+    }
+  }
+
+  /**
+   * Unfollow a company (remove from watchlist)
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   */
+  async unfollowCompany(req, res) {
+    try {
+      const { companyCode } = req.body;
+      const userId = req.user.uid;
+
+      if (!companyCode) {
+        return ApiResponse.validationError(res, ["Company code is required"]);
+      }
+
+      const result = await watchlistService.unfollowCompany(userId, companyCode);
+
+      return ApiResponse.success(
+        res,
+        result,
+        `Successfully unfollowed ${companyCode}`
+      );
+    } catch (error) {
+      logger.error("Error in unfollowCompany controller:", error);
+      return ApiResponse.error(res, "Failed to unfollow company", 500);
+    }
+  }
+
+
+
+  /**
+   * Clear company cache
+   * @param {Object} req - Express request object
+   * @param {Object} res - Express response object
+   */
+  async clearCache(req, res) {
+    try {
+      const { companyId } = req.params;
+
+      if (companyId) {
+        await companyService.clearCompanyCache(companyId);
+        return ApiResponse.success(res, null, `Cache cleared for company: ${companyId}`);
+      } else {
+        await companyService.clearAllCache();
+        return ApiResponse.success(res, null, "All company caches cleared");
+      }
+    } catch (error) {
+      logger.error("Error in clearCache controller:", error);
+      return ApiResponse.error(res, "Failed to clear cache", 500);
     }
   }
 }

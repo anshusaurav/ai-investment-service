@@ -73,8 +73,13 @@ const initializeFirebase = () => {
     }
 };
 
-// Initialize Firebase on module load
-initializeFirebase();
+// Initialize Firebase on module load with error handling
+try {
+    initializeFirebase();
+} catch (error) {
+    logger.error('Failed to initialize Firebase on module load:', error);
+    // Don't throw here to allow the app to start
+}
 
 module.exports = {
     admin,

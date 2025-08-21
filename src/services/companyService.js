@@ -1,5 +1,6 @@
 const { collections } = require("../config/firestore");
 const mongodb = require("../config/mongodb");
+const redis = require("../config/redis");
 const logger = require("../utils/logger");
 
 class CompanyService {
@@ -12,6 +13,13 @@ class CompanyService {
     try {
       logger.info(`Fetching company details for ID: ${companyId}`);
 
+      // Check Redis cache first
+      const cachedData = await redis.getCachedData('company', companyId);
+      if (cachedData) {
+        logger.info(`Company details retrieved from cache for ID: ${companyId}`);
+        return cachedData;
+      }
+
       // Query the documents collection for company data
       const querySnapshot = await collections.documents
         .where("companyCode", "==", companyId)
@@ -23,11 +31,6 @@ class CompanyService {
         return null;
       }
       const docs = querySnapshot.docs;
-      // const docWithMaxMarkdownConcalls = docs.reduce((maxDoc, currentDoc) => {
-      //     const currentConcallsWithMarkdown = (currentDoc.data().Concalls || []).filter(concall => concall.markdownOutput).length;
-      //     const maxConcallsWithMarkdown = (maxDoc?.data().Concalls || []).filter(concall => concall.markdownOutput).length;
-      //     return currentConcallsWithMarkdown > maxConcallsWithMarkdown ? currentDoc : maxDoc;
-      // }, docs[0]);
 
       const doc = docs?.[0];
       const companyData = {
@@ -36,6 +39,9 @@ class CompanyService {
         createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
         updatedAt: doc.data().updatedAt?.toDate?.() || doc.data().updatedAt,
       };
+
+      // Cache the result for 1 hour
+      await redis.cacheData('company', companyId, companyData, 3600);
 
       logger.info(
         `Company details retrieved successfully for ID: ${companyId}`
@@ -158,6 +164,13 @@ class CompanyService {
     try {
       logger.info(`Fetching companies with industries path: ${industryPath}`);
 
+      // Check Redis cache first
+      const cachedData = await redis.getCachedData('industry', industryPath);
+      if (cachedData) {
+        logger.info(`Industry companies retrieved from cache for path: ${industryPath}`);
+        return cachedData;
+      }
+
       // First attempt: Exact match
       console.log('Service - Attempting exact match for:', industryPath);
       let snapshot = await collections.documents
@@ -196,6 +209,9 @@ class CompanyService {
         companyCode: doc.data().companyCode,
       }));
 
+      // Cache the results for 30 minutes
+      await redis.cacheData('industry', industryPath, results, 1800);
+
       logger.info(`Found ${results.length} companies for industries path: ${industryPath}`);
       return results;
 
@@ -216,6 +232,14 @@ class CompanyService {
   async searchCompanies(searchTerm) {
     try {
       logger.info(`Searching companies with term: ${searchTerm}`);
+
+      // Check Redis cache first (cache search results for 10 minutes)
+      const cacheKey = `search:${searchTerm.toLowerCase()}`;
+      const cachedData = await redis.get(cacheKey);
+      if (cachedData) {
+        logger.info(`Search results retrieved from cache for term: ${searchTerm}`);
+        return cachedData;
+      }
 
       // Connect to MongoDB
       await mongodb.connect();
@@ -253,6 +277,9 @@ class CompanyService {
         bseCode: doc.bseCode,
       }));
 
+      // Cache search results for 10 minutes
+      await redis.set(cacheKey, transformedCompanies, 600);
+
       logger.info(`Found ${transformedCompanies.length} companies matching search term`);
       return transformedCompanies;
     } catch (error) {
@@ -265,12 +292,57 @@ class CompanyService {
   }
 
   /**
+   * Get industry lists with caching
+   * @returns {Promise<Array>} Array of industries
+   */
+  async getIndustryList() {
+    try {
+      logger.info("Fetching industry list");
+
+      // Check Redis cache first
+      const cachedData = await redis.getCachedData('industries', 'list');
+      if (cachedData) {
+        logger.info("Industry list retrieved from cache");
+        return cachedData;
+      }
+
+      // Connect to MongoDB to get unique industries
+      await mongodb.connect();
+      const collection = mongodb.getCollection();
+
+      // Get distinct industries from the companies collection
+      const industries = await collection.distinct('industry', {
+        industry: { $exists: true, $ne: null, $ne: "" }
+      });
+
+      // Sort industries alphabetically
+      const sortedIndustries = industries.sort();
+
+      // Cache for 2 hours
+      await redis.cacheData('industries', 'list', sortedIndustries, 7200);
+
+      logger.info(`Found ${sortedIndustries.length} unique industries`);
+      return sortedIndustries;
+    } catch (error) {
+      logger.error("Failed to get industry list:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Get company statistics
    * @returns {Promise<Object>} Company statistics
    */
   async getCompanyStats() {
     try {
       logger.info("Fetching company statistics");
+
+      // Check Redis cache first
+      const cachedData = await redis.getCachedData('stats', 'company');
+      if (cachedData) {
+        logger.info("Company statistics retrieved from cache");
+        return cachedData;
+      }
 
       const querySnapshot = await collections.documents
         .where("type", "==", "company")
@@ -311,11 +383,42 @@ class CompanyService {
         locations,
       };
 
+      // Cache stats for 1 hour
+      await redis.cacheData('stats', 'company', stats, 3600);
+
       logger.info("Company statistics retrieved successfully");
       return stats;
     } catch (error) {
       logger.error("Failed to get company statistics:", error);
       throw error;
+    }
+  }
+
+  /**
+   * Clear cache for a specific company
+   * @param {string} companyId - Company ID
+   */
+  async clearCompanyCache(companyId) {
+    try {
+      await redis.invalidateCache('company', companyId);
+      logger.info(`Cache cleared for company: ${companyId}`);
+    } catch (error) {
+      logger.error(`Failed to clear cache for company ${companyId}:`, error);
+    }
+  }
+
+  /**
+   * Clear all company-related caches
+   */
+  async clearAllCache() {
+    try {
+      await redis.invalidateCache('company', '*');
+      await redis.invalidateCache('industry', '*');
+      await redis.invalidateCache('stats', '*');
+      await redis.invalidateCache('industries', '*');
+      logger.info("All company-related caches cleared");
+    } catch (error) {
+      logger.error("Failed to clear all caches:", error);
     }
   }
 }

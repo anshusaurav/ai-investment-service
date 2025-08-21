@@ -1,28 +1,30 @@
-# Use the official Node.js runtime as the base image
+# Use Node.js 18 Alpine
 FROM node:18-alpine
 
-# Set the working directory in the container
+# Set working directory
 WORKDIR /app
 
-# Copy package.json and package-lock.json (if available)
+# Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production --legacy-peer-deps
+# Install all dependencies (not just production)
+RUN npm ci --legacy-peer-deps
 
-# Copy the rest of the application code
+# Copy the full source
 COPY . .
 
-# Create a non-root user to run the app
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
+# Create non-root user and assign ownership
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    chown -R nodejs:nodejs /app
 
-# Change ownership of the app directory to the nodejs user
-RUN chown -R nodejs:nodejs /app
 USER nodejs
 
-# Expose the port the app runs on (Cloud Run will set PORT env var)
+# Set production environment (optional, if your app behaves differently)
+ENV NODE_ENV=production
+
+# Cloud Run expects container to listen on $PORT
 EXPOSE 8080
 
-# Define the command to run the application
+# Start the server
 CMD ["npm", "start"]
