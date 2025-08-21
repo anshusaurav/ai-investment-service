@@ -207,6 +207,8 @@ class CompanyService {
         id: doc.id,
         name: doc.data().name,
         companyCode: doc.data().companyCode,
+        nseCode: doc.data().nseCode || null,
+        bseCode: doc.data().bseCode || null,
       }));
 
       // Cache the results for 30 minutes

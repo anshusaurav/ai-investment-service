@@ -234,7 +234,7 @@ class CompanyController {
 
       return ApiResponse.success(
         res,
-        result,
+        { watchlist: result.companyCodes },
         `Successfully followed ${companyCode}`
       );
     } catch (error) {
@@ -261,7 +261,7 @@ class CompanyController {
 
       return ApiResponse.success(
         res,
-        result,
+        { watchlist: result.companyCodes },
         `Successfully unfollowed ${companyCode}`
       );
     } catch (error) {

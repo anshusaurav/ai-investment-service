@@ -1,4 +1,5 @@
 const userService = require('../services/userService');
+const watchlistService = require('../services/watchlistService');
 const ApiResponse = require('../utils/responses');
 const logger = require('../utils/logger');
 
@@ -68,7 +69,7 @@ class UserController {
     async getWatchlist(req, res) {
         try {
             const userId = req.user.uid;
-            const watchlist = await userService.getUserWatchlist(userId);
+            const watchlist = await watchlistService.getUserWatchlist(userId);
 
             return ApiResponse.success(
                 res,
@@ -95,13 +96,9 @@ class UserController {
                 return ApiResponse.validationError(res, ['Company code is required']);
             }
 
-            const success = await userService.addToWatchlist(userId, companyCode);
+            const result = await watchlistService.followCompany(userId, companyCode);
 
-            if (!success) {
-                return ApiResponse.error(res, 'Failed to add company to watchlist', 400);
-            }
-
-            return ApiResponse.success(res, null, 'Company added to watchlist successfully');
+            return ApiResponse.success(res, result, 'Company added to watchlist successfully');
         } catch (error) {
             logger.error('Error in addToWatchlist controller:', error);
             return ApiResponse.error(res, 'Failed to add company to watchlist', 500);
@@ -122,13 +119,9 @@ class UserController {
                 return ApiResponse.validationError(res, ['Company code is required']);
             }
 
-            const success = await userService.removeFromWatchlist(userId, companyCode);
+            const result = await watchlistService.unfollowCompany(userId, companyCode);
 
-            if (!success) {
-                return ApiResponse.error(res, 'Failed to remove company from watchlist', 400);
-            }
-
-            return ApiResponse.success(res, null, 'Company removed from watchlist successfully');
+            return ApiResponse.success(res, result, 'Company removed from watchlist successfully');
         } catch (error) {
             logger.error('Error in removeFromWatchlist controller:', error);
             return ApiResponse.error(res, 'Failed to remove company from watchlist', 500);
