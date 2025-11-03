@@ -75,6 +75,45 @@ const authenticateToken = async (req, res, next) => {
     }
 };
 
+/**
+ * Optional authentication middleware - doesn't fail if token is missing
+ * Sets req.user if valid token is present, otherwise continues without user
+ * @param {Object} req - Express request object
+ * @param {Object} res - Express response object
+ * @param {Function} next - Express next function
+ */
+const optionalAuth = async (req, res, next) => {
+    try {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+        if (!token) {
+            // No token provided, continue without authentication
+            return next();
+        }
+
+        // Verify Firebase ID token
+        const userData = await authService.verifyIdToken(token);
+
+        // Add user data to request object
+        req.user = {
+            uid: userData.uid,
+            email: userData.email || '',
+            name: userData.name || userData.displayName || '',
+            displayName: userData.displayName || userData.name || '',
+            emailVerified: userData.emailVerified || false
+        };
+
+        logger.info(`User optionally authenticated: ${userData.uid}`);
+        next();
+    } catch (error) {
+        // Token is invalid, but we don't fail - just continue without user
+        logger.warn('Optional auth failed, continuing without authentication:', error.message);
+        next();
+    }
+};
+
 module.exports = {
-    authenticateToken
+    authenticateToken,
+    optionalAuth
 };

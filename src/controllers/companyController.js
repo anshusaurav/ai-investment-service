@@ -23,9 +23,26 @@ class CompanyController {
         return ApiResponse.notFound(res, "Company not found");
       }
 
+      // Check if user is authenticated and add inWatchlist field
+      let inWatchlist = false;
+      if (req.user && req.user.uid) {
+        try {
+          inWatchlist = await watchlistService.isFollowing(req.user.uid, id);
+        } catch (watchlistError) {
+          // Log error but don't fail the request
+          logger.warn(`Failed to check watchlist status for user ${req.user.uid}:`, watchlistError);
+        }
+      }
+
+      // Add inWatchlist to the company response
+      const responseData = {
+        ...company,
+        inWatchlist
+      };
+
       return ApiResponse.success(
         res,
-        company,
+        responseData,
         "Company details retrieved successfully"
       );
     } catch (error) {

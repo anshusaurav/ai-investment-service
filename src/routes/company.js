@@ -1,17 +1,17 @@
 const express = require('express');
 const companyController = require('../controllers/companyController');
 const { authLimiter } = require('../middleware/rateLimiter');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { validate, schemas } = require('../utils/validators');
 
 const router = express.Router();
 
 /**
  * @route GET /api/company/:id
- * @desc Get company details by ID
- * @access Public (you can add auth middleware if needed)
+ * @desc Get company details by ID (includes inWatchlist for authenticated users)
+ * @access Public (optional authentication)
  */
-router.get('/:id', companyController.getCompanyById);
+router.get('/:id', optionalAuth, companyController.getCompanyById);
 
 /**
  * @route GET /api/company
