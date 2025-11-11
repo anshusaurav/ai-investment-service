@@ -1,3 +1,4 @@
+require('dotenv').config();
 const mongodb = require('../config/mongodb');
 const logger = require('../utils/logger');
 
