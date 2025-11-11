@@ -211,11 +211,22 @@ class CompanyService {
         bseCode: doc.data().bseCode || null,
       }));
 
-      // Cache the results for 30 minutes
-      await redis.cacheData('industry', industryPath, results, 1800);
+      // Deduplicate by companyCode to avoid returning the same company multiple times
+      const uniqueResults = [];
+      const seenCompanyCodes = new Set();
 
-      logger.info(`Found ${results.length} companies for industries path: ${industryPath}`);
-      return results;
+      for (const result of results) {
+        if (!seenCompanyCodes.has(result.companyCode)) {
+          seenCompanyCodes.add(result.companyCode);
+          uniqueResults.push(result);
+        }
+      }
+
+      // Cache the results for 30 minutes
+      await redis.cacheData('industry', industryPath, uniqueResults, 1800);
+
+      logger.info(`Found ${uniqueResults.length} unique companies for industries path: ${industryPath}`);
+      return uniqueResults;
 
     } catch (error) {
       logger.error("Failed to get companies details by industries path:", {
@@ -247,32 +258,87 @@ class CompanyService {
       await mongodb.connect();
       const collection = mongodb.getCollection();
 
-      // Create a case-insensitive regex search for company name
-      const searchRegex = new RegExp(searchTerm, 'i');
+      const searchTermUpper = searchTerm.toUpperCase();
+      const searchTermLower = searchTerm.toLowerCase();
 
-      // Search in multiple fields: name, companyCode, nseCode, bseCode
-      const searchQuery = {
-        $or: [
-          { name: { $regex: searchRegex } },
-          { companyCode: { $regex: searchRegex } },
-          { nseCode: { $regex: searchRegex } },
-          { bseCode: { $regex: searchRegex } }
-        ]
-      };
+      // Strategy: Use indexed queries for better performance
+      // 1. First try exact/prefix matches on indexed fields (fastest)
+      // 2. Then use text search for partial matches (slower but still indexed)
 
-      const companies = await collection
-        .find(searchQuery)
+      let companies = [];
+
+      // Phase 1: Exact and prefix matches on indexed fields
+      const exactMatches = await collection
+        .find({
+          $or: [
+            { companyCode: { $regex: `^${searchTermUpper}`, $options: 'i' } },
+            { nseCode: { $regex: `^${searchTermUpper}`, $options: 'i' } },
+            { bseCode: { $regex: `^${searchTermUpper}`, $options: 'i' } }
+          ]
+        })
         .project({
           companyCode: 1,
           name: 1,
           nseCode: 1,
-          bseCode: 1
+          bseCode: 1,
+          _matchScore: { $literal: 1 } // High priority for exact matches
         })
-        .limit(50)
+        .limit(20)
         .toArray();
 
+      companies.push(...exactMatches);
+
+      // Phase 2: Text search on name field (uses text index)
+      // Only if we haven't found enough results
+      if (companies.length < 50) {
+        try {
+          const textMatches = await collection
+            .find(
+              { $text: { $search: searchTerm } },
+              { score: { $meta: 'textScore' } }
+            )
+            .project({
+              companyCode: 1,
+              name: 1,
+              nseCode: 1,
+              bseCode: 1,
+              _matchScore: { $meta: 'textScore' }
+            })
+            .sort({ _matchScore: -1 })
+            .limit(50 - companies.length)
+            .toArray();
+
+          companies.push(...textMatches);
+        } catch (textSearchError) {
+          // Text index might not exist yet, fall back to regex on name only
+          logger.warn('Text search failed, falling back to regex search on name field');
+          const regexMatches = await collection
+            .find({ name: { $regex: searchTerm, $options: 'i' } })
+            .project({
+              companyCode: 1,
+              name: 1,
+              nseCode: 1,
+              bseCode: 1
+            })
+            .limit(50 - companies.length)
+            .toArray();
+
+          companies.push(...regexMatches);
+        }
+      }
+
+      // Deduplicate by companyCode
+      const seenCompanyCodes = new Set();
+      const uniqueCompanies = companies.filter(doc => {
+        if (seenCompanyCodes.has(doc.companyCode)) {
+          return false;
+        }
+        seenCompanyCodes.add(doc.companyCode);
+        return true;
+      });
+
       // Transform MongoDB documents to return only required fields
-      const transformedCompanies = companies.map((doc) => ({
+      const transformedCompanies = uniqueCompanies.map((doc) => ({
         name: doc.name,
         companyCode: doc.companyCode,
         nseCode: doc.nseCode,
