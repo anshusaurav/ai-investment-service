@@ -1,6 +1,7 @@
 const { collections } = require("../config/firestore");
 const mongodb = require("../config/mongodb");
 const redis = require("../config/redis");
+const memoryCache = require("../config/memoryCache");
 const logger = require("../utils/logger");
 
 class CompanyService {
@@ -13,26 +14,34 @@ class CompanyService {
     try {
       logger.info(`Fetching company details for ID: ${companyId}`);
 
-      // Check Redis cache first
-      const cachedData = await redis.getCachedData('company', companyId);
-      if (cachedData) {
-        logger.info(`Company details retrieved from cache for ID: ${companyId}`);
-        return cachedData;
+      // L1: Check in-memory cache first (fastest - ~1ms)
+      const memoryCachedData = memoryCache.getCachedData('company', companyId);
+      if (memoryCachedData) {
+        logger.info(`Company details retrieved from memory cache for ID: ${companyId}`);
+        return memoryCachedData;
       }
 
-      // Query the documents collection for company data
+      // L2: Check Redis cache (fast - ~10-50ms)
+      const redisCachedData = await redis.getCachedData('company', companyId);
+      if (redisCachedData) {
+        logger.info(`Company details retrieved from Redis cache for ID: ${companyId}`);
+        // Populate memory cache for next request
+        memoryCache.cacheData('company', companyId, redisCachedData, 300);
+        return redisCachedData;
+      }
+
+      // L3: Query the documents collection for company data (slowest - ~100ms+)
       const querySnapshot = await collections.documents
         .where("companyCode", "==", companyId)
-        .limit(10)
+        .limit(1)
         .get();
 
       if (querySnapshot.empty) {
         logger.warn(`No company found with ID: ${companyId}`);
         return null;
       }
-      const docs = querySnapshot.docs;
 
-      const doc = docs?.[0];
+      const doc = querySnapshot.docs[0];
       const companyData = {
         id: doc.id,
         ...doc.data(),
@@ -40,8 +49,11 @@ class CompanyService {
         updatedAt: doc.data().updatedAt?.toDate?.() || doc.data().updatedAt,
       };
 
-      // Cache the result for 1 hour
-      await redis.cacheData('company', companyId, companyData, 3600);
+      // Cache in both layers (don't await Redis - fire and forget)
+      memoryCache.cacheData('company', companyId, companyData, 300); // 5 minutes in memory
+      redis.cacheData('company', companyId, companyData, 3600).catch(err =>
+        logger.error('Failed to cache company data in Redis:', err)
+      );
 
       logger.info(
         `Company details retrieved successfully for ID: ${companyId}`
@@ -238,7 +250,7 @@ class CompanyService {
   }
 
   /**
-   * Search companies by text query
+   * Search companies by text query using Atlas Search
    * @param {string} searchTerm - Search term
    * @returns {Promise<Array>} Array of matching companies
    */
@@ -254,95 +266,73 @@ class CompanyService {
         return cachedData;
       }
 
-      // Connect to MongoDB
-      await mongodb.connect();
+      // Connect to MongoDB if not already connected
+      if (!mongodb.isConnected) {
+        await mongodb.connect();
+      }
       const collection = mongodb.getCollection();
 
-      const searchTermUpper = searchTerm.toUpperCase();
-      const searchTermLower = searchTerm.toLowerCase();
+      // Use Atlas Search for optimized search performance
+      const companies = await collection.aggregate([
+        {
+          $search: {
+            index: "text-search",
+            compound: {
+              should: [
+                // Boost exact prefix matches on codes (highest priority)
+                {
+                  autocomplete: {
+                    query: searchTerm,
+                    path: "companyCode",
+                    score: { boost: { value: 10 } }
+                  }
+                },
+                {
+                  autocomplete: {
+                    query: searchTerm,
+                    path: "nseCode",
+                    score: { boost: { value: 10 } }
+                  }
+                },
+                {
+                  autocomplete: {
+                    query: searchTerm,
+                    path: "bseCode",
+                    score: { boost: { value: 10 } }
+                  }
+                },
+                // Text match on name with fuzzy support
+                {
+                  text: {
+                    query: searchTerm,
+                    path: "name",
+                    fuzzy: { maxEdits: 1 },
+                    score: { boost: { value: 5 } }
+                  }
+                }
+              ],
+              minimumShouldMatch: 1
+            }
+          }
+        },
+        {
+          $project: {
+            name: 1,
+            companyCode: 1,
+            nseCode: 1,
+            bseCode: 1,
+            score: { $meta: "searchScore" }
+          }
+        },
+        { $limit: 50 }
+      ]).toArray();
 
-      // Strategy: Use indexed queries for better performance
-      // 1. First try exact/prefix matches on indexed fields (fastest)
-      // 2. Then use text search for partial matches (slower but still indexed)
-
-      let companies = [];
-
-      // Phase 1: Exact and prefix matches on indexed fields
-      const exactMatches = await collection
-        .find({
-          $or: [
-            { companyCode: { $regex: `^${searchTermUpper}`, $options: 'i' } },
-            { nseCode: { $regex: `^${searchTermUpper}`, $options: 'i' } },
-            { bseCode: { $regex: `^${searchTermUpper}`, $options: 'i' } }
-          ]
-        })
-        .project({
-          companyCode: 1,
-          name: 1,
-          nseCode: 1,
-          bseCode: 1,
-          _matchScore: { $literal: 1 } // High priority for exact matches
-        })
-        .limit(20)
-        .toArray();
-
-      companies.push(...exactMatches);
-
-      // Phase 2: Text search on name field (uses text index)
-      // Only if we haven't found enough results
-      if (companies.length < 50) {
-        try {
-          const textMatches = await collection
-            .find(
-              { $text: { $search: searchTerm } },
-              { score: { $meta: 'textScore' } }
-            )
-            .project({
-              companyCode: 1,
-              name: 1,
-              nseCode: 1,
-              bseCode: 1,
-              _matchScore: { $meta: 'textScore' }
-            })
-            .sort({ _matchScore: -1 })
-            .limit(50 - companies.length)
-            .toArray();
-
-          companies.push(...textMatches);
-        } catch (textSearchError) {
-          // Text index might not exist yet, fall back to regex on name only
-          logger.warn('Text search failed, falling back to regex search on name field');
-          const regexMatches = await collection
-            .find({ name: { $regex: searchTerm, $options: 'i' } })
-            .project({
-              companyCode: 1,
-              name: 1,
-              nseCode: 1,
-              bseCode: 1
-            })
-            .limit(50 - companies.length)
-            .toArray();
-
-          companies.push(...regexMatches);
-        }
-      }
-
-      // Deduplicate by companyCode
-      const seenCompanyCodes = new Set();
-      const uniqueCompanies = companies.filter(doc => {
-        if (seenCompanyCodes.has(doc.companyCode)) {
-          return false;
-        }
-        seenCompanyCodes.add(doc.companyCode);
-        return true;
-      });
-
-      // Transform MongoDB documents to return only required fields
-      const transformedCompanies = uniqueCompanies.map((doc) => ({
-        name: doc.name,
-        companyCode: doc.companyCode,
-        nseCode: doc.nseCode,
-        bseCode: doc.bseCode,
+      // Transform to return only required fields
+      const transformedCompanies = companies.map(({ name, companyCode, nseCode, bseCode }) => ({
+        name,
+        companyCode,
+        nseCode,
+        bseCode
       }));
 
       // Cache search results for 10 minutes
@@ -374,8 +364,10 @@ class CompanyService {
         return cachedData;
       }
 
-      // Connect to MongoDB to get unique industries
-      await mongodb.connect();
+      // Connect to MongoDB if not already connected
+      if (!mongodb.isConnected) {
+        await mongodb.connect();
+      }
       const collection = mongodb.getCollection();
 
       // Get distinct industries from the companies collection
@@ -468,6 +460,8 @@ class CompanyService {
    */
   async clearCompanyCache(companyId) {
     try {
+      // Clear from both memory and Redis cache
+      memoryCache.invalidateCache('company', companyId);
       await redis.invalidateCache('company', companyId);
       logger.info(`Cache cleared for company: ${companyId}`);
     } catch (error) {
@@ -480,6 +474,12 @@ class CompanyService {
    */
   async clearAllCache() {
     try {
+      // Clear from both memory and Redis cache
+      memoryCache.invalidateCache('company', '*');
+      memoryCache.invalidateCache('industry', '*');
+      memoryCache.invalidateCache('stats', '*');
+      memoryCache.invalidateCache('industries', '*');
+
       await redis.invalidateCache('company', '*');
       await redis.invalidateCache('industry', '*');
       await redis.invalidateCache('stats', '*');
