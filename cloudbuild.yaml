@@ -29,8 +29,6 @@ steps:
       - '1'
       - '--max-instances'
       - '10'
-      - '--env-vars-file'
-      - 'env-vars.yaml'
 
 # Store images in Container Registry
 images:
