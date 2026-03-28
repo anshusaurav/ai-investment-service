@@ -4,6 +4,7 @@ const userRoutes = require('./user');
 const companyRoutes = require('./company');
 const industryRoutes = require('./industry');
 // const chatRoutes = require('./chat');
+const paymentRoutes = require('./payment');
 const { generalLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
@@ -32,6 +33,14 @@ router.get('/', (req, res) => {
             },
             company: '/api/company',
             industry: '/api/industry',
+            payment: {
+                createOrder: 'POST /api/payment/create-order',
+                verifyPayment: 'POST /api/payment/verify',
+                getPayment: 'GET /api/payment/payment/:paymentId',
+                getOrder: 'GET /api/payment/order/:orderId',
+                createRefund: 'POST /api/payment/refund/:paymentId',
+                webhook: 'POST /api/payment/webhook'
+            },
             health: '/health'
         },
         documentation: '/docs'
@@ -43,6 +52,7 @@ router.use('/auth', authRoutes);
 router.use('/user', userRoutes);
 router.use('/company', companyRoutes);
 router.use('/industry', industryRoutes);
-// router.use('/chat', chatRoutes)
+// router.use('/chat', chatRoutes);
+router.use('/payment', paymentRoutes);
 
 module.exports = router;

@@ -33,7 +33,7 @@ const initializeFirebase = () => {
                 logger.info('Firebase initialized with service account from environment variable');
             } catch (parseError) {
                 logger.error('Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY:', parseError.message);
-                throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_KEY format');
+                throw new Error('In1ICE_ACCOUNT_KEY format');
             }
         } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
             // Using Google Application Default Credentials

@@ -266,6 +266,10 @@ class CompanyService {
         return cachedData;
       }
 
+      // Ensure MongoDB is connected before querying
+      if (!mongodb.isConnected) {
+        await mongodb.connect();
+      }
       const collection = mongodb.getCollection();
 
       // Use Atlas Search for optimized search performance
@@ -360,6 +364,10 @@ class CompanyService {
         return cachedData;
       }
 
+      // Ensure MongoDB is connected before querying
+      if (!mongodb.isConnected) {
+        await mongodb.connect();
+      }
       const collection = mongodb.getCollection();
 
       // Get distinct industries from the companies collection

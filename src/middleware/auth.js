@@ -61,7 +61,7 @@ const authenticateToken = async (req, res, next) => {
             return res.status(400).json(errorResponse);
         } else if (error.code === 'auth/user-not-found') {
             errorResponse.action = 'signup_required';
-            errorResponse.message = 'User not found. Please sign up first.';
+            errorResponse.message = 'Please sign up first.';
             return res.status(404).json(errorResponse);
         } else if (error.code === 'auth/user-disabled') {
             errorResponse.action = 'contact_support';

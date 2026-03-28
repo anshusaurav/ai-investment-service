@@ -29,8 +29,9 @@ class DocumentService {
     this.collectionName = "documents";
 
     // Initialize Qdrant client
-    this.client = new QdrantClient({ url: "http://127.0.0.1:6333" });
-
+    this.client = new QdrantClient({
+      url: process.env.QDRANT_URL,
+      });
     // Initialize collection (immediately invoked)
     (async () => {
       try {

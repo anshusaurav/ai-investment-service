@@ -102,7 +102,7 @@ class AuthService {
             const userRecord = await admin.auth().getUser(decodedToken.uid);
 
             if (!userRecord) {
-                const error = new Error('User not found. Please sign up first.');
+                const error = new Error('Please sign up first.');
                 error.code = 'auth/user-not-found';
                 throw error;
             }
@@ -117,7 +117,7 @@ class AuthService {
             // Check if user exists in MongoDB
             const mongoUser = await userService.getUserByUid(decodedToken.uid);
             if (!mongoUser) {
-                const error = new Error('User not found in database. Please sign up first.');
+                const error = new Error('Please sign up first.');
                 error.code = 'auth/user-not-found';
                 throw error;
             }
@@ -267,7 +267,7 @@ class AuthService {
             'auth/refresh-failed': 'Failed to refresh token',
             'auth/configuration-error': 'Server configuration error',
             'auth/forbidden': 'Access forbidden',
-            'auth/user-not-found': 'User not found. Please sign up first.',
+            'auth/user-not-found': 'Please sign up first.',
             'auth/user-already-exists': 'User already exists. Please sign in instead.',
             'auth/user-disabled': 'User account has been disabled',
             'auth/project-not-found': 'Firebase project not found',

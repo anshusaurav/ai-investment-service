@@ -17,21 +17,20 @@ class CompanyController {
         return ApiResponse.validationError(res, ["Company ID is required"]);
       }
 
-      const company = await companyService.getCompanyById(id);
+      // Parallelize company fetch and watchlist check for better performance
+      const [company, inWatchlist] = await Promise.all([
+        companyService.getCompanyById(id),
+        // Only check watchlist if user is authenticated
+        req.user && req.user.uid
+          ? watchlistService.isFollowing(req.user.uid, id).catch(error => {
+              logger.warn(`Failed to check watchlist status for user ${req.user.uid}:`, error);
+              return false;
+            })
+          : Promise.resolve(false)
+      ]);
 
       if (!company) {
         return ApiResponse.notFound(res, "Company not found");
-      }
-
-      // Check if user is authenticated and add inWatchlist field
-      let inWatchlist = false;
-      if (req.user && req.user.uid) {
-        try {
-          inWatchlist = await watchlistService.isFollowing(req.user.uid, id);
-        } catch (watchlistError) {
-          // Log error but don't fail the request
-          logger.warn(`Failed to check watchlist status for user ${req.user.uid}:`, watchlistError);
-        }
       }
 
       // Add inWatchlist to the company response

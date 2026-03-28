@@ -19,6 +19,10 @@ class WatchlistService {
                 return cachedWatchlist;
             }
 
+            // Connect to MongoDB if not already connected
+            if (!mongodb.isConnected) {
+                await mongodb.connect();
+            }
             const collection = mongodb.getCollection('watchlists');
 
             // Find user's watchlist
@@ -50,6 +54,10 @@ class WatchlistService {
         try {
             logger.info(`Adding company ${companyCode} to watchlist for user: ${userId}`);
 
+            // Connect to MongoDB if not already connected
+            if (!mongodb.isConnected) {
+                await mongodb.connect();
+            }
             const collection = mongodb.getCollection('watchlists');
 
             // Use upsert to create document if it doesn't exist
@@ -102,6 +110,10 @@ class WatchlistService {
         try {
             logger.info(`Removing company ${companyCode} from watchlist for user: ${userId}`);
 
+            // Connect to MongoDB if not already connected
+            if (!mongodb.isConnected) {
+                await mongodb.connect();
+            }
             const collection = mongodb.getCollection('watchlists');
 
             // Remove company from array
@@ -203,6 +215,10 @@ class WatchlistService {
         try {
             logger.info(`Clearing watchlist for user: ${userId}`);
 
+            // Connect to MongoDB if not already connected
+            if (!mongodb.isConnected) {
+                await mongodb.connect();
+            }
             const collection = mongodb.getCollection('watchlists');
 
             // Clear the companyCodes array

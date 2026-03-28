@@ -2,22 +2,22 @@
 steps:
   # Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/ai-investment-service:latest', '.']
-  
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/node-app:latest', '.']
+
   # Push the image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/ai-investment-service:latest']
-  
+    args: ['push', 'gcr.io/$PROJECT_ID/node-app:latest']
+
   # Deploy to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
     args:
       - 'run'
       - 'deploy'
-      - 'ai-investment-service'
+      - 'node-app'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/ai-investment-service:latest'
+      - 'gcr.io/$PROJECT_ID/node-app:latest'
       - '--region'
-      - 'asia-south1'
+      - 'us-central1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
@@ -34,7 +34,7 @@ steps:
 
 # Store images in Container Registry
 images:
-  - 'gcr.io/$PROJECT_ID/ai-investment-service:latest'
+  - 'gcr.io/$PROJECT_ID/node-app:latest'
 
 # Build options
 options:
