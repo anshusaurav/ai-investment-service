@@ -5,7 +5,7 @@ const schemas = {
         idToken: Joi.string().required().min(1).max(4096)
     }),
 
-    cagoogleSignIn: Joi.object({
+    googleSignIn: Joi.object({
         idToken: Joi.string().required().min(1).max(4096)
     }),
 
