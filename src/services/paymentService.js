@@ -5,6 +5,7 @@ const OrderModel = require('../models/Order');
 const PaymentModel = require('../models/Payment');
 const RefundModel = require('../models/Refund');
 const WebhookEventModel = require('../models/WebhookEvent');
+const UserModel = require('../models/User');
 
 class PaymentService {
   /**
@@ -82,6 +83,12 @@ class PaymentService {
 
     // Update the order status to attempted/paid
     await OrderModel.updateStatus(razorpay_order_id, 'attempted');
+
+    // Activate subscription for the user based on order notes
+    const orderDoc = await OrderModel.findByRazorpayOrderId(razorpay_order_id);
+    const plan = orderDoc?.notes?.plan || 'premium';
+    const durationDays = parseInt(orderDoc?.notes?.durationDays) || 365;
+    await UserModel.activateSubscription(userId, plan, durationDays);
 
     return rzpPayment;
   }
@@ -177,6 +184,13 @@ class PaymentService {
         const p = payload.payment.entity;
         await PaymentModel.updateStatus(p.id, 'captured', { capturedAt: new Date() });
         await OrderModel.updateStatus(p.order_id, 'paid');
+        // Activate subscription (webhook path — idempotent with captureVerifiedPayment)
+        const orderDoc = await OrderModel.findByRazorpayOrderId(p.order_id);
+        if (orderDoc?.userId) {
+          const plan = orderDoc?.notes?.plan || 'premium';
+          const durationDays = parseInt(orderDoc?.notes?.durationDays) || 365;
+          await UserModel.activateSubscription(orderDoc.userId, plan, durationDays);
+        }
         break;
       }
       case 'payment.failed': {

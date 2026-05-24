@@ -60,6 +60,27 @@ class WatchlistService {
             }
             const collection = mongodb.getCollection('watchlists');
 
+            // Enforce watchlist limit for non-premium users
+            const existingDoc = await collection.findOne({ userId });
+            const currentCodes = existingDoc ? (existingDoc.companyCodes || []) : [];
+            const alreadyFollowing = currentCodes.includes(companyCode);
+
+            if (!alreadyFollowing) {
+                const usersCollection = mongodb.getCollection('users');
+                const userDoc = await usersCollection.findOne(
+                    { uid: userId },
+                    { projection: { subscription: 1 } }
+                );
+                const sub = userDoc?.subscription;
+                const isPremium = sub?.plan === 'premium' && sub?.expiresAt > new Date();
+
+                if (!isPremium && currentCodes.length >= 10) {
+                    const err = new Error('Free plan limit reached. Upgrade to premium to follow more than 10 companies.');
+                    err.code = 'WATCHLIST_LIMIT_REACHED';
+                    throw err;
+                }
+            }
+
             // Use upsert to create document if it doesn't exist
             const result = await collection.updateOne(
                 { userId },

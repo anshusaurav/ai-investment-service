@@ -254,6 +254,9 @@ class CompanyController {
         `Successfully followed ${companyCode}`
       );
     } catch (error) {
+      if (error.code === 'WATCHLIST_LIMIT_REACHED') {
+        return ApiResponse.forbidden(res, error.message);
+      }
       logger.error("Error in followCompany controller:", error);
       return ApiResponse.error(res, "Failed to follow company", 500);
     }

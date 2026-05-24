@@ -267,6 +267,37 @@ class User {
     }
 
     /**
+     * Activate or renew a premium subscription for a user
+     * @param {string} uid - Firebase UID
+     * @param {string} plan - Subscription plan name (e.g. 'premium')
+     * @param {number} durationDays - How many days the subscription lasts
+     * @returns {Promise<Object>} Subscription details
+     */
+    async activateSubscription(uid, plan = 'premium', durationDays = 365) {
+        try {
+            const collection = this.getCollection();
+            const activatedAt = new Date();
+            const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+
+            await collection.updateOne(
+                { uid },
+                {
+                    $set: {
+                        subscription: { plan, activatedAt, expiresAt },
+                        updatedAt: new Date()
+                    }
+                }
+            );
+
+            logger.info(`Subscription activated for user ${uid}: plan=${plan}, expiresAt=${expiresAt}`);
+            return { plan, activatedAt, expiresAt };
+        } catch (error) {
+            logger.error('Error activating subscription:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Create indexes for the users collection
      * @returns {Promise<void>}
      */
