@@ -11,8 +11,7 @@ const router = express.Router();
 
 // Apply general rate limiter
 router.use(generalLimiter);
-router.use('/auth', authRoutes);
-router.use('/user', userRoutes);
+
 // API version info
 router.get('/', (req, res) => {
     res.json({

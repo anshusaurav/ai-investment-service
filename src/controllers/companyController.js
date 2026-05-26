@@ -102,7 +102,7 @@ class CompanyController {
         return ApiResponse.validationError(res, ["Company name is required"]);
       }
 
-      const company = await companyService.getCompanyByIndustry(name);
+      const company = await companyService.getCompanyByName(name);
 
       if (!company) {
         return ApiResponse.notFound(res, "Company not found");

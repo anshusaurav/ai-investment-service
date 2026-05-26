@@ -28,18 +28,23 @@ class DocumentService {
     // Collection name for Qdrant
     this.collectionName = "documents";
 
-    // Initialize Qdrant client
-    this.client = new QdrantClient({
-      url: process.env.QDRANT_URL,
+    // Initialize Qdrant client only when a URL is configured
+    if (process.env.QDRANT_URL) {
+      this.client = new QdrantClient({
+        url: process.env.QDRANT_URL,
+        apiKey: process.env.QDRANT_API_KEY,
       });
-    // Initialize collection (immediately invoked)
-    (async () => {
-      try {
-        await this.initializeCollection();
-      } catch (error) {
-        console.error("Failed to initialize Qdrant:", error);
-      }
-    })();
+      (async () => {
+        try {
+          await this.initializeCollection();
+        } catch (error) {
+          console.error("Failed to initialize Qdrant:", error);
+        }
+      })();
+    } else {
+      this.client = null;
+      console.log("Qdrant not configured — document/RAG features disabled");
+    }
   }
 
   async initializeCollection() {

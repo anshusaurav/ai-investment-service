@@ -106,6 +106,42 @@ class UserController {
     }
 
     /**
+     * Get user subscription status
+     * @param {Object} req - Express request object
+     * @param {Object} res - Express response object
+     */
+    async getSubscription(req, res) {
+        try {
+            const userId = req.user.uid;
+            const userProfile = await userService.getUserByUid(userId);
+
+            if (!userProfile) {
+                return ApiResponse.error(res, 'User not found', 404);
+            }
+
+            const sub = userProfile.subscription || null;
+            const now = new Date();
+            const isActive = sub && sub.plan === 'premium' && new Date(sub.expiresAt) > now;
+
+            return ApiResponse.success(res, {
+                plan: isActive ? 'premium' : 'free',
+                isActive: !!isActive,
+                subscription: sub ? {
+                    plan: sub.plan,
+                    activatedAt: sub.activatedAt,
+                    expiresAt: sub.expiresAt,
+                    daysRemaining: isActive
+                        ? Math.ceil((new Date(sub.expiresAt) - now) / (1000 * 60 * 60 * 24))
+                        : 0,
+                } : null,
+            }, 'Subscription status retrieved successfully');
+        } catch (error) {
+            logger.error('Error in getSubscription controller:', error);
+            return ApiResponse.error(res, 'Failed to retrieve subscription status', 500);
+        }
+    }
+
+    /**
      * Remove company from watchlist
      * @param {Object} req - Express request object
      * @param {Object} res - Express response object

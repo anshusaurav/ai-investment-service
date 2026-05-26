@@ -24,6 +24,13 @@ router.get('/profile', authenticateToken, userController.getUserProfile);
 router.put('/profile', authenticateToken, userController.updateUserProfile);
 
 /**
+ * @route GET /api/user/subscription
+ * @desc Get user's subscription status and details
+ * @access Private (requires JWT token)
+ */
+router.get('/subscription', authenticateToken, userController.getSubscription);
+
+/**
  * @route GET /api/user/watchlist
  * @desc Get user's watchlist
  * @access Private (requires JWT token)

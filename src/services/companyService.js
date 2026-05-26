@@ -135,9 +135,7 @@ class CompanyService {
       logger.info(`Fetching company details for name: ${companyName}`);
 
       const querySnapshot = await collections.documents
-        .where("type", "==", "company")
         .where("name", "==", companyName)
-        .where("status", "==", "active")
         .limit(1)
         .get();
 
