@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const redis = require('../config/redis');
 const logger = require('../utils/logger');
 
 class UserService {
@@ -166,6 +167,37 @@ class UserService {
             return !!user;
         } catch (error) {
             logger.error('Error checking if user exists:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Check if a user has an active premium subscription.
+     * Result is cached in Redis for 5 minutes to avoid hitting MongoDB on every request.
+     * @param {string} uid - Firebase UID
+     * @returns {Promise<boolean>}
+     */
+    async isPremium(uid) {
+        if (!uid) return false;
+        try {
+            const cacheKey = `user-premium:${uid}`;
+            const cached = await redis.get(cacheKey);
+            if (cached !== null && cached !== undefined) {
+                return cached === true;
+            }
+
+            const user = await User.findByUid(uid);
+            const sub = user?.subscription;
+            const premium =
+                sub?.plan === 'premium' &&
+                sub?.expiresAt &&
+                new Date(sub.expiresAt) > new Date();
+
+            // Cache boolean for 5 minutes — JSON.stringify(true/false) round-trips correctly
+            await redis.set(cacheKey, !!premium, 300).catch(() => {});
+            return !!premium;
+        } catch (error) {
+            logger.warn(`isPremium check failed for uid ${uid}:`, error.message);
             return false;
         }
     }

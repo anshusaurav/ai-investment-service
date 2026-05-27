@@ -27,6 +27,14 @@ const schemas = {
 
     unfollowCompany: Joi.object({
         companyCode: Joi.string().required().min(1).max(50).pattern(/^[A-Z0-9_-]+$/)
+    }),
+
+    trackGuidance: Joi.object({
+        companyCode: Joi.string().required().min(1).max(50)
+    }),
+
+    trackConcall: Joi.object({
+        concallId: Joi.string().required().min(1).max(200)
     })
 };
 

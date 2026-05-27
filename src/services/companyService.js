@@ -4,6 +4,100 @@ const redis = require("../config/redis");
 const memoryCache = require("../config/memoryCache");
 const logger = require("../utils/logger");
 
+// ─── Internal-field stripping ─────────────────────────────────────────────────
+
+/** Fields on the top-level company document that are pipeline-internal only */
+const TOP_LEVEL_STRIP = new Set([
+  'lastProcessed',
+  'trackerGeneratedAt',
+  'rawDocuments',   // safety net — should have been removed by DocumentCleaner
+]);
+
+/** Fields on individual Concall objects that are pipeline-internal only */
+const CONCALL_STRIP = new Set([
+  'isGuidanceTableStandardized',
+  'guidanceTableStandardizedDate',
+  'guidanceTableStandardizationNote',
+  'guidanceTableStandardizationError',
+  'processingError',
+  'processingDate',
+  'textLength',
+]);
+
+/**
+ * Extract a plain display value from an insights cell.
+ * The scraper stores values as either a plain string/number OR an object
+ * { value: "1,234", dateKey: "2024-03-31", sourceLink: "https://..." }.
+ * We only expose the display string to the frontend.
+ */
+function extractInsightValue(raw) {
+  if (raw === null || raw === undefined) return null;
+  if (typeof raw === 'object') return raw.value ?? null;
+  return raw;
+}
+
+/**
+ * Clean an insights object before sending to the frontend:
+ *   - Period objects: keep only { label }
+ *   - Row values: unwrap from { value, dateKey, sourceLink } → plain string
+ */
+function transformInsights(insights) {
+  if (!insights || typeof insights !== 'object') return insights;
+  const result = {};
+  for (const [tab, tabData] of Object.entries(insights)) {
+    if (!tabData) { result[tab] = tabData; continue; }
+    result[tab] = {
+      periods: (tabData.periods || []).map(p => ({ label: p.label })),
+      rows: (tabData.rows || []).map(row => ({
+        metric: row.metric,
+        ...(row.unit !== undefined && row.unit !== null ? { unit: row.unit } : {}),
+        values: Object.fromEntries(
+          Object.entries(row.values || {}).map(([period, val]) => [
+            period,
+            extractInsightValue(val),
+          ])
+        ),
+      })),
+    };
+  }
+  return result;
+}
+
+/**
+ * Strip pipeline-internal fields from a raw Firestore company document and
+ * return a clean object safe to send to the frontend.
+ * The `insights` field is intentionally NOT cleaned here — callers that have
+ * already determined the user is premium should call transformInsights() on
+ * responseData.insights separately (done in the controller).
+ */
+function transformCompanyData(raw) {
+  if (!raw) return raw;
+
+  // 1. Strip internal top-level fields
+  const cleaned = Object.fromEntries(
+    Object.entries(raw).filter(([k]) => !TOP_LEVEL_STRIP.has(k))
+  );
+
+  // 2. Strip internal fields from each Concall
+  if (cleaned.documents?.Concalls) {
+    cleaned.documents = {
+      ...cleaned.documents,
+      Concalls: cleaned.documents.Concalls.map(concall =>
+        Object.fromEntries(
+          Object.entries(concall).filter(([k]) => !CONCALL_STRIP.has(k))
+        )
+      ),
+    };
+  }
+
+  // 3. Clean insights (unwrap value objects, strip period metadata)
+  if (cleaned.insights) {
+    cleaned.insights = transformInsights(cleaned.insights);
+  }
+
+  return cleaned;
+}
+
 class CompanyService {
   /**
    * Get company details by ID from documents collection
@@ -42,12 +136,15 @@ class CompanyService {
       }
 
       const doc = querySnapshot.docs[0];
-      const companyData = {
+      const raw = {
         id: doc.id,
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate?.() || doc.data().createdAt,
         updatedAt: doc.data().updatedAt?.toDate?.() || doc.data().updatedAt,
       };
+
+      // Strip pipeline-internal fields and clean insights value format
+      const companyData = transformCompanyData(raw);
 
       // Cache in both layers (don't await Redis - fire and forget)
       memoryCache.cacheData('company', companyId, companyData, 300); // 5 minutes in memory

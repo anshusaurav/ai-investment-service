@@ -1,5 +1,6 @@
 const express = require('express');
 const userController = require('../controllers/userController');
+const usageController = require('../controllers/usageController');
 const { authLimiter } = require('../middleware/rateLimiter');
 const { authenticateToken } = require('../middleware/auth');
 const { validate, schemas } = require('../utils/validators');
@@ -58,5 +59,45 @@ router.delete('/watchlist',
     validate(schemas.unfollowCompany), 
     userController.removeFromWatchlist
 );
+
+/**
+ * @route GET /api/user/usage
+ * @desc Get current month's usage (guidance + concall views)
+ * @access Private
+ */
+router.get('/usage', authenticateToken, usageController.getUsage);
+
+/**
+ * @route POST /api/user/usage/guidance
+ * @desc Track a guidance tracker view for a company
+ * @access Private
+ * @body { companyCode: string }
+ */
+router.post(
+    '/usage/guidance',
+    authenticateToken,
+    validate(schemas.trackGuidance),
+    usageController.trackGuidance
+);
+
+/**
+ * @route POST /api/user/usage/concall
+ * @desc Track a concall summary view
+ * @access Private
+ * @body { concallId: string }
+ */
+router.post(
+    '/usage/concall',
+    authenticateToken,
+    validate(schemas.trackConcall),
+    usageController.trackConcall
+);
+
+/**
+ * @route DELETE /api/user/usage
+ * @desc Reset current month's usage to zero (dev/testing)
+ * @access Private
+ */
+router.delete('/usage', authenticateToken, usageController.resetUsage);
 
 module.exports = router;

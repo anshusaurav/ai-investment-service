@@ -1,5 +1,6 @@
 const companyService = require("../services/companyService");
 const watchlistService = require("../services/watchlistService");
+const userService = require("../services/userService");
 const ApiResponse = require("../utils/responses");
 const logger = require("../utils/logger");
 
@@ -17,8 +18,8 @@ class CompanyController {
         return ApiResponse.validationError(res, ["Company ID is required"]);
       }
 
-      // Parallelize company fetch and watchlist check for better performance
-      const [company, inWatchlist] = await Promise.all([
+      // Parallelize company fetch, watchlist check, and premium check
+      const [company, inWatchlist, isPremium] = await Promise.all([
         companyService.getCompanyById(id),
         // Only check watchlist if user is authenticated
         req.user && req.user.uid
@@ -26,6 +27,10 @@ class CompanyController {
               logger.warn(`Failed to check watchlist status for user ${req.user.uid}:`, error);
               return false;
             })
+          : Promise.resolve(false),
+        // Check premium subscription (cached in Redis for 5 min)
+        req.user && req.user.uid
+          ? userService.isPremium(req.user.uid)
           : Promise.resolve(false)
       ]);
 
@@ -33,11 +38,15 @@ class CompanyController {
         return ApiResponse.notFound(res, "Company not found");
       }
 
-      // Add inWatchlist to the company response
+      // Build response — strip insights for non-premium users
       const responseData = {
         ...company,
         inWatchlist
       };
+
+      if (!isPremium) {
+        delete responseData.insights;
+      }
 
       return ApiResponse.success(
         res,
