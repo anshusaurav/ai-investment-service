@@ -2,14 +2,30 @@ const paymentService = require('../services/paymentService');
 const ApiResponse = require('../utils/responses');
 const logger = require('../utils/logger');
 
+// Server-side price list — single source of truth, not controllable by the client
+const VALID_PRICES = {
+  'premium:monthly': 299,
+  'premium:annual':  2999,
+};
+
 const createOrder = async (req, res) => {
   try {
     const { amount, currency, receipt, notes } = req.body;
     if (!amount || amount <= 0) {
       return ApiResponse.error(res, 'Valid amount is required', 400);
     }
+
+    // Validate amount against server-side price list to prevent price manipulation
+    const plan = notes?.plan || 'premium';
+    const billingCycle = notes?.durationDays === '365' ? 'annual' : 'monthly';
+    const expectedAmount = VALID_PRICES[`${plan}:${billingCycle}`];
+    if (!expectedAmount || parseFloat(amount) !== expectedAmount) {
+      logger.warn(`Price manipulation attempt: received ${amount}, expected ${expectedAmount} for ${plan}:${billingCycle}`);
+      return ApiResponse.error(res, 'Invalid amount for selected plan', 400);
+    }
+
     const { razorpayOrder, savedOrder } = await paymentService.createOrder(
-      { amount: parseFloat(amount), currency, receipt, notes },
+      { amount: expectedAmount, currency, receipt, notes },
       req.user.uid
     );
     return ApiResponse.success(res, { order: razorpayOrder, savedOrder }, 'Order created successfully');
