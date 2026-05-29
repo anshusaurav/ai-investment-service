@@ -46,6 +46,11 @@ class CompanyController {
 
       if (!isPremium) {
         delete responseData.insights;
+      } else if (responseData.insights === undefined) {
+        // Premium user but this company has no insights data yet.
+        // Return an empty object so the frontend shows "No data available"
+        // instead of the non-premium "Upgrade" gate.
+        responseData.insights = {};
       }
 
       return ApiResponse.success(
