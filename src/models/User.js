@@ -287,20 +287,38 @@ class User {
     async activateSubscription(uid, plan = 'premium', durationDays = 365) {
         try {
             const collection = this.getCollection();
-            const activatedAt = new Date();
-            const expiresAt = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
+            const now = new Date();
+            const durationMs = durationDays * 24 * 60 * 60 * 1000;
+
+            // If the user already has an active subscription, extend from the current
+            // expiry date rather than from now, so existing days are never lost.
+            const existing = await this.findByUid(uid);
+            const existingExpiry = existing?.subscription?.expiresAt
+                ? new Date(existing.subscription.expiresAt)
+                : null;
+            const baseDate = existingExpiry && existingExpiry > now ? existingExpiry : now;
+
+            const activatedAt = now;
+            const expiresAt = new Date(baseDate.getTime() + durationMs);
 
             await collection.updateOne(
                 { uid },
                 {
                     $set: {
-                        subscription: { plan, activatedAt, expiresAt },
-                        updatedAt: new Date()
+                        subscription: {
+                            plan,
+                            billingCycle: durationDays >= 365 ? 'annual' : 'monthly',
+                            source: 'paid',
+                            startedAt: activatedAt,
+                            activatedAt,
+                            expiresAt,
+                        },
+                        updatedAt: now,
                     }
                 }
             );
 
-            logger.info(`Subscription activated for user ${uid}: plan=${plan}, expiresAt=${expiresAt}`);
+            logger.info(`Subscription activated for user ${uid}: plan=${plan}, baseDate=${baseDate.toISOString()}, expiresAt=${expiresAt.toISOString()}`);
             return { plan, activatedAt, expiresAt };
         } catch (error) {
             logger.error('Error activating subscription:', error);
