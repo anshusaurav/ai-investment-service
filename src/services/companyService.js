@@ -63,15 +63,42 @@ function transformInsights(insights) {
   return result;
 }
 
+const MONTH_ABBR = {
+  jan:1,feb:2,mar:3,apr:4,may:5,jun:6,
+  jul:7,aug:8,sep:9,oct:10,nov:11,dec:12
+};
+
 /**
- * Parse a quarter string like "Q4FY26" / "Q4 FY26" into a sortable object.
- * Returns { fy: 0, qNum: 0 } for unrecognised formats (they sort to the end).
+ * Parse any quarter/period string into a comparable { year, month } object.
+ * Handles:
+ *   "Q4FY26" / "Q4 FY26"  → fiscal-year format (Q4 FY26 = Jan 2026)
+ *   "May2026" / "Jan2025"  → MonthYear format
+ * Returns { year: 0, month: 0 } for unrecognised formats (sorted to end).
  */
 function parseQuarterForSort(quarter) {
-  if (!quarter) return { fy: 0, qNum: 0 };
-  const match = quarter.match(/Q(\d+)\s*FY(\d+)/i);
-  if (match) return { fy: parseInt(match[2], 10), qNum: parseInt(match[1], 10) };
-  return { fy: 0, qNum: 0 };
+  if (!quarter) return { year: 0, month: 0 };
+
+  // "Q4FY26" / "Q4 FY26"
+  const qMatch = quarter.match(/Q(\d+)\s*FY(\d+)/i);
+  if (qMatch) {
+    const qNum = parseInt(qMatch[1], 10);
+    const fy   = parseInt(qMatch[2], 10);
+    // Indian FY: Q1=Apr-Jun, Q2=Jul-Sep, Q3=Oct-Dec, Q4=Jan-Mar
+    // FY26 starts April 2025 → base calendar year = 2000+fy-1
+    const base = 2000 + fy - 1;
+    const monthStarts = { 1: 4, 2: 7, 3: 10, 4: 1 };
+    const yearAdd     = qNum === 4 ? 1 : 0;
+    return { year: base + yearAdd, month: monthStarts[qNum] ?? 1 };
+  }
+
+  // "May2026" / "Nov2025"
+  const mMatch = quarter.match(/^([A-Za-z]+)(\d{4})$/);
+  if (mMatch) {
+    const m = MONTH_ABBR[mMatch[1].toLowerCase().slice(0, 3)];
+    if (m) return { year: parseInt(mMatch[2], 10), month: m };
+  }
+
+  return { year: 0, month: 0 };
 }
 
 /**
@@ -102,8 +129,8 @@ function transformCompanyData(raw) {
         .sort((a, b) => {
           const pa = parseQuarterForSort(a.quarter);
           const pb = parseQuarterForSort(b.quarter);
-          if (pb.fy !== pa.fy) return pb.fy - pa.fy;
-          return pb.qNum - pa.qNum;
+          if (pb.year !== pa.year) return pb.year - pa.year;
+          return pb.month - pa.month;
         }),
     };
   }
