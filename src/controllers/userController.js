@@ -122,17 +122,21 @@ class UserController {
             const sub = userProfile.subscription || null;
             const now = new Date();
             const isActive = sub && sub.plan === 'premium' && new Date(sub.expiresAt) > now;
+            const daysRemaining = isActive
+                ? Math.ceil((new Date(sub.expiresAt) - now) / (1000 * 60 * 60 * 24))
+                : 0;
 
             return ApiResponse.success(res, {
                 plan: isActive ? 'premium' : 'free',
                 isActive: !!isActive,
                 subscription: sub ? {
                     plan: sub.plan,
-                    activatedAt: sub.activatedAt,
+                    billingCycle: sub.billingCycle || null,
+                    source: sub.source || null,
+                    activatedAt: sub.startedAt || sub.activatedAt,
                     expiresAt: sub.expiresAt,
-                    daysRemaining: isActive
-                        ? Math.ceil((new Date(sub.expiresAt) - now) / (1000 * 60 * 60 * 24))
-                        : 0,
+                    daysRemaining,
+                    isTrial: sub.source === 'trial',
                 } : null,
             }, 'Subscription status retrieved successfully');
         } catch (error) {

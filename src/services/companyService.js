@@ -64,6 +64,17 @@ function transformInsights(insights) {
 }
 
 /**
+ * Parse a quarter string like "Q4FY26" / "Q4 FY26" into a sortable object.
+ * Returns { fy: 0, qNum: 0 } for unrecognised formats (they sort to the end).
+ */
+function parseQuarterForSort(quarter) {
+  if (!quarter) return { fy: 0, qNum: 0 };
+  const match = quarter.match(/Q(\d+)\s*FY(\d+)/i);
+  if (match) return { fy: parseInt(match[2], 10), qNum: parseInt(match[1], 10) };
+  return { fy: 0, qNum: 0 };
+}
+
+/**
  * Strip pipeline-internal fields from a raw Firestore company document and
  * return a clean object safe to send to the frontend.
  * The `insights` field is intentionally NOT cleaned here — callers that have
@@ -78,15 +89,22 @@ function transformCompanyData(raw) {
     Object.entries(raw).filter(([k]) => !TOP_LEVEL_STRIP.has(k))
   );
 
-  // 2. Strip internal fields from each Concall
+  // 2. Strip internal fields from each Concall and sort newest-first
   if (cleaned.documents?.Concalls) {
     cleaned.documents = {
       ...cleaned.documents,
-      Concalls: cleaned.documents.Concalls.map(concall =>
-        Object.fromEntries(
-          Object.entries(concall).filter(([k]) => !CONCALL_STRIP.has(k))
+      Concalls: cleaned.documents.Concalls
+        .map(concall =>
+          Object.fromEntries(
+            Object.entries(concall).filter(([k]) => !CONCALL_STRIP.has(k))
+          )
         )
-      ),
+        .sort((a, b) => {
+          const pa = parseQuarterForSort(a.quarter);
+          const pb = parseQuarterForSort(b.quarter);
+          if (pb.fy !== pa.fy) return pb.fy - pa.fy;
+          return pb.qNum - pa.qNum;
+        }),
     };
   }
 

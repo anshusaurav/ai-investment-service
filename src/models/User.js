@@ -35,6 +35,10 @@ class User {
                 throw new Error('User already exists');
             }
 
+            // 30-day free trial for all new users
+            const trialStartedAt = new Date();
+            const trialExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
             const user = {
                 uid: userData.uid,
                 email: userData.email,
@@ -46,6 +50,13 @@ class User {
                 createdAt: new Date(),
                 updatedAt: new Date(),
                 lastLoginAt: new Date(),
+                subscription: {
+                    plan: 'premium',
+                    billingCycle: 'trial',
+                    startedAt: trialStartedAt,
+                    expiresAt: trialExpiresAt,
+                    source: 'trial',
+                },
                 profile: {
                     firstName: userData.firstName || null,
                     lastName: userData.lastName || null,
