@@ -9,25 +9,33 @@ spec:
   template:
     metadata:
       annotations:
-        autoscaling.knative.dev/maxScale: "20"
+        # Scale to ZERO when idle — this is the key cost saving vs App Engine
         autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "10"
+        # Faster cold starts — extra CPU allocated during container startup only
         run.googleapis.com/startup-cpu-boost: "true"
-        run.googleapis.com/cpu-throttling: "false"
+        # Throttle CPU between requests (billed only during request processing)
+        # Safe for this app — all background work (initServices, Redis) reconnects on cold start
+        run.googleapis.com/cpu-throttling: "true"
     spec:
       containerConcurrency: 80
       timeoutSeconds: 300
       containers:
-      - image: gcr.io/PROJECT_ID/IMAGE_NAME
+      - image: us-central1-docker.pkg.dev/PROJECT_ID/specterfi/node-app:latest
         ports:
         - name: http1
           containerPort: 8080
         env:
         - name: PORT
           value: "8080"
+        - name: NODE_ENV
+          value: "production"
         resources:
           limits:
-            cpu: 1000m
-            memory: 512Mi
+            # 1 vCPU — adequate for Express + Firebase Admin + Redis
+            cpu: "1"
+            # 1Gi — headroom for heavy node_modules (langchain, pinecone, firebase-admin)
+            memory: 1Gi
         startupProbe:
           httpGet:
             path: /health

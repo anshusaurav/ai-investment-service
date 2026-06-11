@@ -7,8 +7,8 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (not just production)
-RUN npm ci --legacy-peer-deps
+# Install production dependencies only — keeps image lean
+RUN npm ci --omit=dev --legacy-peer-deps
 
 # Copy the full source
 COPY . .
@@ -20,11 +20,9 @@ RUN addgroup -g 1001 -S nodejs && \
 
 USER nodejs
 
-# Set production environment (optional, if your app behaves differently)
 ENV NODE_ENV=production
 
 # Cloud Run expects container to listen on $PORT
 EXPOSE 8080
 
-# Start the server
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
