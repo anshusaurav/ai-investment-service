@@ -35,9 +35,9 @@ class User {
                 throw new Error('User already exists');
             }
 
-            // 30-day free trial for all new users
+            // 7-day free trial for all new users
             const trialStartedAt = new Date();
-            const trialExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+            const trialExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
             const user = {
                 uid: userData.uid,

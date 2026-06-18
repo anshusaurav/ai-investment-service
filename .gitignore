@@ -17,7 +17,10 @@ yarn-error.log*
 .env.docker.template
 
 env-vars.yaml
-env-vars.yaml
+all_envvars.yaml
+deploy_cmd.sh
+service_replace.yaml
+
 # Firebase & Google Cloud
 serviceAccountKey.json
 firebase-debug.log

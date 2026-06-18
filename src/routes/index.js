@@ -5,6 +5,7 @@ const companyRoutes = require('./company');
 const industryRoutes = require('./industry');
 // const chatRoutes = require('./chat');
 const paymentRoutes = require('./payment');
+const cronRoutes = require('./cron');
 const { generalLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
@@ -53,5 +54,6 @@ router.use('/company', companyRoutes);
 router.use('/industry', industryRoutes);
 // router.use('/chat', chatRoutes);
 router.use('/payment', paymentRoutes);
+router.use('/cron', cronRoutes);
 
 module.exports = router;
