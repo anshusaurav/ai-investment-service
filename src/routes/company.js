@@ -5,6 +5,7 @@ const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const { validate, schemas } = require('../utils/validators');
 
 const router = express.Router();
+router.use(require('../promoterAudit/router').createRouter(() => require('../config/firestore').db));
 
 // ── Static routes first — must be registered before /:id ─────────────────────
 
